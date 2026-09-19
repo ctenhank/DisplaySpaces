@@ -11,8 +11,8 @@ if ($env:OS -ne 'Windows_NT') {
 }
 
 $repositoryRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
-$coreTests = Join-Path $repositoryRoot 'tests\IndependentVirtualDesktop.Core.Tests\IndependentVirtualDesktop.Core.Tests.csproj'
-$appExecutable = Join-Path $repositoryRoot 'src\IndependentVirtualDesktop.App\bin\Release\net10.0-windows\IndependentVirtualDesktop.exe'
+$coreTests = Join-Path $repositoryRoot 'tests\BetterVirtualDesktop.Core.Tests\BetterVirtualDesktop.Core.Tests.csproj'
+$appExecutable = Join-Path $repositoryRoot 'src\BetterVirtualDesktop.App\bin\Release\net10.0-windows\BetterVirtualDesktop.exe'
 $outputDirectory = Join-Path $repositoryRoot 'artifacts\tests'
 
 Push-Location -LiteralPath $repositoryRoot
@@ -45,7 +45,17 @@ try {
 
     $resultsPath = Join-Path $outputDirectory 'smoke-results.txt'
     $imagePath = Join-Path $outputDirectory 'overview.png'
-    foreach ($artifactPath in @($resultsPath, $imagePath)) {
+    $overlayPath = Join-Path $outputDirectory 'overlay-primary.png'
+    $compactOverlayPath = Join-Path $outputDirectory 'overlay-compact.png'
+    $desktopNamePath = Join-Path $outputDirectory 'desktop-name-toast.png'
+    $languagePaths = @(foreach ($languageCode in @('ko', 'en', 'zh-Hans', 'zh-Hant', 'ja')) {
+        Join-Path $outputDirectory "overlay-language-$languageCode.png"
+        Join-Path $outputDirectory "overlay-language-$languageCode-compact.png"
+        Join-Path $outputDirectory "shortcuts-$languageCode.png"
+        Join-Path $outputDirectory "shortcuts-$languageCode-compact.png"
+    })
+    $expectedArtifacts = @($resultsPath, $imagePath, $overlayPath, $compactOverlayPath, $desktopNamePath) + $languagePaths
+    foreach ($artifactPath in $expectedArtifacts) {
         if (-not (Test-Path -LiteralPath $artifactPath -PathType Leaf)) {
             throw "Application self-test did not produce its expected artifact: $artifactPath"
         }
@@ -53,6 +63,10 @@ try {
 
     Get-Content -LiteralPath $resultsPath
     Write-Host "Overview image: $imagePath"
+    Write-Host "Per-display overlay image: $overlayPath"
+    Write-Host "Compact overlay image: $compactOverlayPath"
+    Write-Host "Desktop name notification image: $desktopNamePath"
+    Write-Host "Language feedback previews: $outputDirectory\overlay-language-*.png"
 }
 finally {
     Pop-Location

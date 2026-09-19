@@ -7,8 +7,8 @@ $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 
 $repositoryRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
-$solutionPath = Join-Path $repositoryRoot 'IndependentVirtualDesktop.sln'
-$appProject = Join-Path $repositoryRoot 'src\IndependentVirtualDesktop.App\IndependentVirtualDesktop.App.csproj'
+$solutionPath = Join-Path $repositoryRoot 'BetterVirtualDesktop.sln'
+$appProject = Join-Path $repositoryRoot 'src\BetterVirtualDesktop.App\BetterVirtualDesktop.App.csproj'
 
 Push-Location -LiteralPath $repositoryRoot
 try {
@@ -23,7 +23,8 @@ try {
         if ($LASTEXITCODE -ne 0) {
             throw "Publish failed with exit code $LASTEXITCODE."
         }
-        Write-Host "Standalone application: $(Join-Path $publishDirectory 'IndependentVirtualDesktop.exe')"
+        & (Join-Path $PSScriptRoot 'copy-runtime-notices.ps1') -PublishDirectory $publishDirectory
+        Write-Host "Standalone application: $(Join-Path $publishDirectory 'BetterVirtualDesktop.exe')"
     }
 }
 finally {
