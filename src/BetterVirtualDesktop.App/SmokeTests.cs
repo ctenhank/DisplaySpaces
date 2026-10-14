@@ -84,6 +84,12 @@ internal static class SmokeTests
             File.WriteAllText(Path.Combine(output, "smoke-results.txt"), "RUNNING\n");
             File.WriteAllText(Path.Combine(output, "test-stage.txt"), "Native keyboard state tests");
             foreach (var name in NativeSelfTests.Run()) results.Add("PASS " + name);
+            File.WriteAllText(Path.Combine(output, "test-stage.txt"), "Startup registration and menu tests");
+            StartupSelfTests.Run(results);
+            File.WriteAllText(Path.Combine(output, "test-stage.txt"), "Move preview behavior tests");
+            MoveBehaviorSelfTests.Run(output, results);
+            File.WriteAllText(Path.Combine(output, "test-stage.txt"), "Taskbar activation tests");
+            TaskbarActivationSelfTests.Run(output, results);
             File.WriteAllText(Path.Combine(output, "test-stage.txt"), "Shortcut preference tests");
             ShortcutPreferenceSelfTests.Run(output, results);
             File.WriteAllText(Path.Combine(output, "test-stage.txt"), "Shortcut settings UI tests");
@@ -231,6 +237,7 @@ internal static class SmokeTests
                 foreach (var targetOverlay in new[] { primaryOverlay, overlays.Forms.FirstOrDefault(f => f.DisplayId != initial.DisplayId) }.OfType<DisplayOverlayForm>())
                 {
                     var before = controller.Catalog.Snapshot().Single(d => d.Id == targetOverlay.DisplayId);
+                    var previewsBeforeMove = overlays.Forms.ToDictionary(form => form.DisplayId, form => form.SelectedDesktopId);
                     DispatchDrop(targetOverlay, primaryOverlay.CreateDragData(root), null);
                     PumpFor(140);
                     var after = controller.Catalog.Snapshot().Single(d => d.Id == targetOverlay.DisplayId);
@@ -239,12 +246,13 @@ internal static class SmokeTests
                         && NativeWindows.GetDisplayId(root) == targetOverlay.DisplayId, "new-desktop drop owner group placement");
                     controller.Refresh(); overlays.UpdateContent(); PumpFor(100);
                     Assert(after.Desktops.Count == before.Desktops.Count + 1 && overlays.Visible
-                        && targetOverlay.SelectedDesktopId == created.Id
+                        && overlays.Forms.All(form => form.SelectedDesktopId == previewsBeforeMove[form.DisplayId])
                         && targetOverlay.HasCreationFeedback
                         && controller.Catalog.GetAssignment(root)?.DesktopId == created.Id
                         && controller.Catalog.GetAssignment(dialog)?.DesktopId == created.Id
                         && controller.Catalog.Snapshot().All(d => d.ActiveDesktopId == unchanged[d.Id]),
-                        $"new desktop card drop creates one desktop, moves the owner group and previews it without switching: {targetOverlay.DisplayId}", results);
+                        $"new desktop card drop moves the owner group while preserving every desktop and overlay preview: {targetOverlay.DisplayId}; "
+                        + $"visible={overlays.Visible}, feedback={targetOverlay.HasCreationFeedback}, preview={targetOverlay.SelectedDesktopId}, expected={previewsBeforeMove[targetOverlay.DisplayId]}", results);
                     if (targetOverlay == primaryOverlay)
                     {
                         targetOverlay.Refresh();

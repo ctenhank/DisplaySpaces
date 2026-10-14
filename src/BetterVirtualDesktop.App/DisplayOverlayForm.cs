@@ -43,6 +43,7 @@ internal sealed class DisplayOverlayForm : Form
     private bool _closing;
     private bool _dragging;
     private bool _suppressMouseUp;
+    private bool _holdDesktopPreviewAfterMove;
     private string? _hoveredTargetId;
     private string? _pressedTargetId;
     private MouseButtons _pressedButton;
@@ -219,7 +220,10 @@ internal sealed class DisplayOverlayForm : Form
         bool preview = desktop.Id != _display.ActiveDesktopId;
         int actionWidth = preview ? Math.Min(TextRenderer.MeasureText(UiText.Get("OpenDesktop"), _smallFont).Width + S(24), bounds.Width * 3 / 5) : 0;
         var hint = new Rectangle(textLeft, bounds.Bottom - S(45), Math.Max(1, textWidth - actionWidth - S(12)), S(34));
-        DrawText(g, UiText.Get(preview ? compact ? "Previewing" : "NewDesktopPreviewHint" : "ActiveDesktop"), _smallFont, Color.FromArgb(214, 228, 236), hint);
+        string hintKey = !preview ? "ActiveDesktop" : _selected == desktop.Id
+            ? compact ? "Previewing" : "NewDesktopPreviewHint"
+            : compact ? "MoveKeepsViewShort" : "MoveKeepsViewHint";
+        DrawText(g, UiText.Get(hintKey), _smallFont, Color.FromArgb(214, 228, 236), hint);
         if (preview)
         {
             var button = new Rectangle(bounds.Right - actionWidth - S(20), bounds.Bottom - S(48), actionWidth, S(36));
@@ -233,7 +237,8 @@ internal sealed class DisplayOverlayForm : Form
     public void ShowCreationFeedback(Guid desktopId, bool windowMoved = true)
     {
         if (!_display.Desktops.Any(d => d.Id == desktopId)) return;
-        PreviewDesktop(desktopId);
+        // Moving a window must not change the desktop being previewed or scroll its cards away.
+        if (windowMoved) PreservePreviewAfterMove();
         _creationDesktop = desktopId;
         _creationMovedWindow = windowMoved;
         _creationStarted = Stopwatch.GetTimestamp();
@@ -600,8 +605,25 @@ internal sealed class DisplayOverlayForm : Form
         if (_display.Desktops.Any(d => d.Id == desktopId)) SelectionRequested?.Invoke(DisplayId, desktopId, null);
     }
 
-    public void RequestMove(long handle, string displayId, Guid desktopId) => MoveToDisplayRequested?.Invoke(handle, displayId, desktopId);
-    public void RequestMoveToNewDesktop(long handle, string displayId) => MoveToNewDesktopRequested?.Invoke(handle, displayId);
+    public void PreservePreviewAfterMove()
+    {
+        // OLE may deliver mouse movement/release on the destination card after dropping.
+        // Keep its hover styling, but wait for the pointer to leave the rail before auto-previewing.
+        _holdDesktopPreviewAfterMove = true;
+        _suppressMouseUp = true;
+        ClearPress();
+    }
+
+    public void RequestMove(long handle, string displayId, Guid desktopId)
+    {
+        PreservePreviewAfterMove();
+        MoveToDisplayRequested?.Invoke(handle, displayId, desktopId);
+    }
+    public void RequestMoveToNewDesktop(long handle, string displayId)
+    {
+        PreservePreviewAfterMove();
+        MoveToNewDesktopRequested?.Invoke(handle, displayId);
+    }
     public void ShowStatus(string message) { _status = message; Invalidate(); }
     public void CancelOverlay() => DismissRequested?.Invoke();
     public void RequestKeyboardFocus() => KeyboardFocusRequested?.Invoke();
@@ -670,7 +692,9 @@ internal sealed class DisplayOverlayForm : Form
         }
         var hit = _pointerInside ? HitTest(e.Location) : null;
         SetHovered(hit);
-        if (hit?.DesktopId is Guid id && _pressedButton == MouseButtons.None && e.Button == MouseButtons.None && !_dragging) PreviewDesktop(id);
+        if (!_rail.Contains(e.Location)) _holdDesktopPreviewAfterMove = false;
+        if (!_holdDesktopPreviewAfterMove && hit?.DesktopId is Guid id && _pressedButton == MouseButtons.None
+            && e.Button == MouseButtons.None && !_dragging) PreviewDesktop(id);
     }
 
     protected override void OnMouseUp(MouseEventArgs e)
@@ -698,6 +722,7 @@ internal sealed class DisplayOverlayForm : Form
     {
         base.OnMouseLeave(e);
         _pointerInside = false;
+        _holdDesktopPreviewAfterMove = false;
         SetHovered(null);
         Invalidate();
     }
@@ -740,7 +765,12 @@ internal sealed class DisplayOverlayForm : Form
         return data?.GetData(DataFormats.UnicodeText, false) is string text && text.StartsWith(prefix, StringComparison.Ordinal)
             && long.TryParse(text.AsSpan(prefix.Length), out long handle) && handle != 0 ? new WindowDrag(handle) : null;
     }
-    protected override void OnDragEnter(DragEventArgs e) { base.OnDragEnter(e); UpdateDrag(e); }
+    protected override void OnDragEnter(DragEventArgs e)
+    {
+        base.OnDragEnter(e);
+        if (ReadDrag(e.Data) is not null) PreservePreviewAfterMove();
+        UpdateDrag(e);
+    }
     protected override void OnDragOver(DragEventArgs e) { base.OnDragOver(e); UpdateDrag(e); }
     private void UpdateDrag(DragEventArgs e)
     {

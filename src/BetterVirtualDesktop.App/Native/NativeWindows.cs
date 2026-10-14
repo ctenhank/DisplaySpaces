@@ -163,6 +163,7 @@ public static class NativeWindows
     }
 
     public static bool IsVisible(long handle) => handle != 0 && IsWindowVisible(new nint(handle));
+    internal static bool Exists(long handle) => handle != 0 && IsWindow(new nint(handle));
     public static bool IsMinimized(long handle) => handle != 0 && IsIconic(new nint(handle));
     public static bool IsMaximized(long handle) => handle != 0 && IsZoomed(new nint(handle));
 

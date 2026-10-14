@@ -92,12 +92,14 @@ internal sealed class OverlayCoordinator : IDisposable
                     form.RenameRequested += (id, desktop, name) => Post(source, () => { _controller.RenameDesktop(id, desktop, name); UpdateContent(); });
                     form.MoveToDisplayRequested += (handle, id, desktop) => Post(source, () =>
                     {
+                        PreserveMovePreviews();
                         bool moved = _controller.MoveWindowToDisplay(handle, id, desktop);
                         source.ShowStatus(UiText.Get(moved ? "MoveSucceeded" : "MoveFailed"));
                         UpdateContent();
                     });
                     form.MoveToNewDesktopRequested += (handle, id) => Post(source, () =>
                     {
+                        PreserveMovePreviews();
                         var desktop = _controller.MoveWindowToNewDesktop(handle, id);
                         UpdateContent();
                         if (desktop is Guid created && _forms.TryGetValue(id, out var destination))
@@ -138,6 +140,11 @@ internal sealed class OverlayCoordinator : IDisposable
         if (_disposed) return;
         foreach (var form in _forms.Values) form.ApplyLanguage();
         UpdateContent();
+    }
+
+    private void PreserveMovePreviews()
+    {
+        foreach (var overlay in _forms.Values) overlay.PreservePreviewAfterMove();
     }
 
     private void CapturePreviews()

@@ -51,7 +51,9 @@ internal static class UiTextResources
         Add("PrimaryDisplaySuffix", " · Primary", " · 주 모니터", " · 主显示器", " · 主要顯示器", " · メイン");
         Add("SystemLanguage", "Use system language", "시스템 언어 사용", "使用系统语言", "使用系統語言", "システムの言語を使用");
         Add("Language", "Language", "언어", "语言", "語言", "言語");
-        Add("OpenDesktop", "Open desktop · Enter", "데스크톱 열기 · Enter", "打开桌面 · Enter", "開啟桌面 · Enter", "デスクトップを開く · Enter");
+        Add("OpenDesktop", "Open desktop", "데스크톱 열기", "打开桌面", "開啟桌面", "デスクトップを開く");
+        Add("MoveKeepsViewHint", "Window moved · Your current view is unchanged", "창을 옮겼습니다 · 현재 화면을 유지합니다", "窗口已移入 · 当前视图保持不变", "視窗已移入 · 目前檢視保持不變", "ウィンドウを移動しました · 現在の表示を維持します");
+        Add("MoveKeepsViewShort", "Current view unchanged", "현재 화면 유지", "保持当前视图", "維持目前檢視", "現在の表示を維持");
         Add("CurrentDesktopHint", "Currently active: {0}", "현재 데스크톱: {0}", "当前桌面：{0}", "目前桌面：{0}", "現在のデスクトップ：{0}");
         Add("CreationComplete", "Created", "생성 완료", "已创建", "已建立", "作成完了");
         Add("WindowMovedNotice", "Window moved", "창 이동 완료", "窗口已移动", "視窗已移動", "ウィンドウの移動完了");
@@ -61,6 +63,7 @@ internal static class UiTextResources
 
         Add("Tray.Overlays", "Overlay on all displays ({0})", "모든 화면에 오버레이 ({0})", "在所有显示器显示叠加视图（{0}）", "在所有顯示器顯示覆蓋檢視（{0}）", "すべての画面にオーバーレイ（{0}）");
         Add("Tray.Management", "Manage desktops", "관리 창", "管理桌面", "管理桌面", "デスクトップの管理");
+        Add("Tray.StartWithWindows", "Start with Windows", "Windows 시작 시 자동 실행", "随 Windows 启动", "隨 Windows 啟動", "Windows 起動時に自動実行");
         Add("Tray.NamePosition", "Desktop name position", "데스크톱 이름 표시 위치", "桌面名称显示位置", "桌面名稱顯示位置", "デスクトップ名の表示位置");
         Add("Tray.TopRight", "Top right", "오른쪽 위", "右上角", "右上角", "右上");
         Add("Tray.TopLeft", "Top left", "왼쪽 위", "左上角", "左上角", "左上");
@@ -77,6 +80,10 @@ internal static class UiTextResources
         Add("Startup.NoExecutable", "Could not locate the executable.", "실행 파일 경로를 찾을 수 없습니다.", "找不到可执行文件。", "找不到執行檔。", "実行ファイルが見つかりません。");
         Add("Startup.HelperFailed", "Could not start the helper process.", "보조 프로세스를 시작할 수 없습니다.", "无法启动辅助进程。", "無法啟動輔助處理程序。", "補助プロセスを起動できません。");
         Add("Startup.GuardianFailed", "Could not start the window recovery monitor.", "창 복구 감시 프로세스를 시작하지 못했습니다.", "无法启动窗口恢复监控进程。", "無法啟動視窗還原監控處理程序。", "ウィンドウ復元の監視プロセスを起動できませんでした。");
+        Add("Startup.AutoRunHint", "Registers the current app location to start in the background when you sign in. Windows Startup apps settings can disable it separately.", "현재 실행 파일 경로를 등록하여 로그인 시 백그라운드에서 실행합니다. Windows의 시작 앱 설정에서 별도로 사용을 중지할 수 있습니다.", "注册当前应用路径，以便登录时在后台启动。Windows 的启动应用设置可单独禁用此功能。", "登錄目前的應用程式路徑，以便登入時在背景啟動。Windows 的啟動應用程式設定可另外停用此功能。", "現在のアプリの場所を登録し、サインイン時にバックグラウンドで起動します。Windows のスタートアップ アプリの設定で個別に無効にできます。");
+        Add("Startup.AutoRunUnavailable", "Could not read the startup setting. Reopen this menu to try again.", "자동 실행 설정을 읽지 못했습니다. 메뉴를 다시 열어 시도해 주세요.", "无法读取启动设置。请重新打开此菜单重试。", "無法讀取啟動設定。請重新開啟此選單再試一次。", "自動起動の設定を読み取れませんでした。このメニューを開き直して再試行してください。");
+        Add("Startup.AutoRunFailed", "Could not change the startup setting. {0}", "자동 실행 설정을 변경하지 못했습니다. {0}", "无法更改启动设置。{0}", "無法變更啟動設定。{0}", "自動起動の設定を変更できませんでした。{0}");
+        Add("Startup.AutoRunDifferentPath", "The registered app location differs from the current one. Turn this on to update it to the current executable.", "등록된 경로가 현재 앱과 다릅니다. 켜면 현재 실행 파일로 갱신합니다.", "已注册的应用路径与当前位置不同。启用后将更新为当前可执行文件。", "已登錄的應用程式路徑與目前位置不同。啟用後將更新為目前的執行檔。", "登録されている場所が現在のアプリと異なります。有効にすると現在の実行ファイルに更新します。");
 
         Add("Overview.Title", "BetterVirtualDesktop · Manage desktops", "BetterVirtualDesktop · 관리 창", "BetterVirtualDesktop · 管理桌面", "BetterVirtualDesktop · 管理桌面", "BetterVirtualDesktop · デスクトップの管理");
         Add("Overview.Hint", "Switch only the display under the pointer.  ·  {0} / {1}", "마우스가 있는 모니터만 전환합니다.  ·  {0} / {1}", "仅切换鼠标所在的显示器。  ·  {0} / {1}", "僅切換滑鼠所在的顯示器。  ·  {0} / {1}", "マウスポインターがある画面だけを切り替えます。  ·  {0} / {1}");

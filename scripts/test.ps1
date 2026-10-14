@@ -1,10 +1,15 @@
 [CmdletBinding()]
 param(
-    [switch]$SkipBuild
+    [switch]$SkipBuild,
+    [switch]$StartupOnly,
+    [switch]$MovesOnly,
+    [switch]$TaskbarOnly
 )
 
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
+
+if (@(@($StartupOnly, $MovesOnly, $TaskbarOnly) | Where-Object { $_ }).Count -gt 1) { throw 'Choose only one focused test mode.' }
 
 if ($env:OS -ne 'Windows_NT') {
     throw 'Application self-tests require an interactive Windows desktop session.'
@@ -31,8 +36,9 @@ try {
     }
 
     [System.IO.Directory]::CreateDirectory($outputDirectory) | Out-Null
+    $testMode = if ($StartupOnly) { '--self-test-startup' } elseif ($MovesOnly) { '--self-test-moves' } elseif ($TaskbarOnly) { '--self-test-taskbar' } else { '--self-test' }
     $testProcess = Start-Process -FilePath $appExecutable `
-        -ArgumentList @('--self-test', ('"' + $outputDirectory + '"')) `
+        -ArgumentList @($testMode, ('"' + $outputDirectory + '"')) `
         -WorkingDirectory $repositoryRoot -WindowStyle Hidden -Wait -PassThru
     try {
         if ($testProcess.ExitCode -ne 0) {
@@ -41,6 +47,19 @@ try {
     }
     finally {
         $testProcess.Dispose()
+    }
+
+    if ($StartupOnly) {
+        Get-Content -LiteralPath (Join-Path $outputDirectory 'startup-results.txt')
+        return
+    }
+    if ($MovesOnly) {
+        Get-Content -LiteralPath (Join-Path $outputDirectory 'move-results.txt')
+        return
+    }
+    if ($TaskbarOnly) {
+        Get-Content -LiteralPath (Join-Path $outputDirectory 'taskbar-results.txt')
+        return
     }
 
     $resultsPath = Join-Path $outputDirectory 'smoke-results.txt'

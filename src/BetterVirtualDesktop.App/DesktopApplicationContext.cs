@@ -15,6 +15,7 @@ internal sealed class DesktopApplicationContext : ApplicationContext
     private readonly OverviewForm _overview;
     private readonly OverlayCoordinator _overlays;
     private readonly DesktopNameToastCoordinator _desktopNames;
+    private readonly TaskbarDesktopCoordinator _taskbarDesktops;
     private readonly NotifyIcon _tray;
     private readonly KeyboardHook _keyboard;
     private readonly System.Windows.Forms.Timer _timer;
@@ -27,7 +28,7 @@ internal sealed class DesktopApplicationContext : ApplicationContext
     private ShortcutProfile _shortcuts = ShortcutProfile.Defaults;
     private ShortcutSettingsForm? _shortcutSettings;
 
-    public DesktopApplicationContext()
+    public DesktopApplicationContext(bool showOnStartup = true)
     {
         try
         {
@@ -42,6 +43,13 @@ internal sealed class DesktopApplicationContext : ApplicationContext
             _overlays = new OverlayCoordinator(_controller, _dispatcher);
             _overlays.ShortcutSettingsRequested += OpenShortcutSettings;
             _desktopNames = new DesktopNameToastCoordinator(_controller, _dispatcher);
+            _taskbarDesktops = new TaskbarDesktopCoordinator(_controller, _dispatcher,
+                () => _stopping || _shortcutSettings is not null);
+            _taskbarDesktops.DesktopFollowed += () =>
+            {
+                _overlays.Dismiss(false);
+                _overview.Hide();
+            };
             _controller.Changed += () =>
             {
                 // Rebuild after the current click handler completes; do not dispose its control in-place.
@@ -91,7 +99,7 @@ internal sealed class DesktopApplicationContext : ApplicationContext
             };
             _timer.Start();
             Application.ThreadException += OnThreadException;
-            OpenOverlays();
+            if (showOnStartup) OpenOverlays();
         }
         catch
         {
@@ -105,6 +113,7 @@ internal sealed class DesktopApplicationContext : ApplicationContext
             BestEffort(() => _keyboard?.Dispose());
             BestEffort(() => _overlays?.Dispose());
             BestEffort(() => _desktopNames?.Dispose());
+            BestEffort(() => _taskbarDesktops?.Dispose());
             BestEffort(() => _tray?.ContextMenuStrip?.Dispose());
             BestEffort(() => _tray?.Dispose());
             BestEffort(() => _trayFont?.Dispose());
@@ -148,6 +157,13 @@ internal sealed class DesktopApplicationContext : ApplicationContext
         menu.Items.Add(UiText.Get("Tray.Overlays", overlayShortcut), null, (_, _) => OpenOverlays());
         menu.Items.Add(UiText.Get("Tray.Management"), null, (_, _) => OpenOverview());
         menu.Items.Add(UiText.Get("Shortcuts.Open"), null, (_, _) => OpenShortcutSettings());
+        var startup = new StartupMenuItem(new StartupRegistration(), Environment.ProcessPath, error =>
+        {
+            AppLog.Write(error);
+            _tray.ShowBalloonTip(6000, "BetterVirtualDesktop", UiText.Get("Startup.AutoRunFailed", error.Message), ToolTipIcon.Error);
+        });
+        menu.Items.Add(startup);
+        menu.Opening += (_, _) => startup.RefreshStatus();
         var namePosition = new ToolStripMenuItem(UiText.Get("Tray.NamePosition"));
         var topRight = new ToolStripMenuItem(UiText.Get("Tray.TopRight")) { Checked = _desktopNames.Corner == DesktopToastCorner.TopRight };
         var topLeft = new ToolStripMenuItem(UiText.Get("Tray.TopLeft")) { Checked = _desktopNames.Corner == DesktopToastCorner.TopLeft };
@@ -318,6 +334,7 @@ internal sealed class DesktopApplicationContext : ApplicationContext
         BestEffort(() => _shortcutSettings?.Close());
         BestEffort(_timer.Stop);
         BestEffort(_controller.RestoreAllAndPause);
+        BestEffort(_taskbarDesktops.Dispose);
         BestEffort(_journal.DeleteIfEmpty);
         BestEffort(_keyboard.Dispose);
         BestEffort(_overlays.Dispose);
@@ -339,6 +356,7 @@ internal sealed class DesktopApplicationContext : ApplicationContext
             BestEffort(_keyboard.Dispose);
             BestEffort(_overlays.Dispose);
             BestEffort(_desktopNames.Dispose);
+            BestEffort(_taskbarDesktops.Dispose);
             BestEffort(() => _tray.ContextMenuStrip?.Dispose());
             BestEffort(_tray.Dispose);
             BestEffort(() => _trayFont?.Dispose());

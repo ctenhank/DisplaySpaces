@@ -12,11 +12,28 @@ public sealed class DesktopController
     private readonly RecoveryJournal _journal;
     private readonly HashSet<long> _unmanageable = new();
     private readonly Dictionary<long, PendingDisplayMove> _displayMoves = new();
+    private readonly Dictionary<long, long> _pendingHides = new();
+    private readonly Dictionary<long, long> _hideCompletedAt = new();
+    private long _lastVisibilityChangeTick = Environment.TickCount64;
     public WorkspaceCatalog Catalog { get; } = new();
     public bool Paused { get; private set; }
     public event Action? Changed;
+    internal event Action<long>? WindowHideRequested;
     public IReadOnlyDictionary<long, NativeWindowInfo> Windows => _windows;
     public int UnmanageableCount => _unmanageable.Count;
+    internal long VisibilityGeneration { get; private set; }
+    internal uint LastVisibilityChangeTime { get; private set; } = unchecked((uint)Environment.TickCount);
+    internal bool OwnsHiddenWindow(long handle) => _journal.Contains(handle);
+    internal bool HasPendingHide(long handle) => _pendingHides.ContainsKey(handle);
+    internal void ObserveHiddenWindow(long handle)
+    {
+        if (_pendingHides.TryGetValue(handle, out long requestedAt)
+            && Environment.TickCount64 - requestedAt >= 80 && !NativeWindows.IsVisible(handle))
+        {
+            _pendingHides.Remove(handle);
+            _hideCompletedAt[handle] = Environment.TickCount64;
+        }
+    }
 
     public DesktopController(RecoveryJournal journal, Func<NativeWindowInfo, bool>? include = null,
         Func<bool>? canHide = null)
@@ -96,11 +113,15 @@ public sealed class DesktopController
         _unmanageable.Remove(handle);
         _showRequests.Remove(handle);
         _displayMoves.Remove(handle);
+        _pendingHides.Remove(handle);
+        _hideCompletedAt.Remove(handle);
         Catalog.ForgetWindow(handle);
     }
 
     private void RequestShow(long handle)
     {
+        _pendingHides.Remove(handle);
+        _hideCompletedAt.Remove(handle);
         if (_showRequests.TryGetValue(handle, out var requested) && DateTime.UtcNow - requested > TimeSpan.FromMilliseconds(80))
         {
             _journal.ConfirmRestored(handle);
@@ -119,10 +140,12 @@ public sealed class DesktopController
             if (!_windows.ContainsKey(entry.Handle)) RequestShow(entry.Handle);
 
         var toHide = new List<NativeWindowInfo>();
+        var pendingShows = new HashSet<long>();
         var blockedGroups = new HashSet<long>();
         // Prepare every member before hiding any owner: Windows can hide owned popups implicitly.
         foreach (var window in _windows.Values)
         {
+            ObserveHiddenWindow(window.Handle);
             bool visible = Paused || Catalog.IsWindowVisible(window.Handle)
                 || !NativeWindows.IsOnCurrentVirtualDesktop(window.Handle);
             if (visible)
@@ -130,7 +153,7 @@ public sealed class DesktopController
                 if (_journal.Contains(window.Handle)) RequestShow(window.Handle);
                 continue;
             }
-            _showRequests.Remove(window.Handle);
+            if (_showRequests.Remove(window.Handle)) pendingShows.Add(window.Handle);
             if (!NativeWindows.IsVisible(window.Handle) && !_journal.Contains(window.Handle)) continue;
             if (_journal.PrepareHide(window))
             {
@@ -148,7 +171,16 @@ public sealed class DesktopController
             // A palette/dialog that cannot be journaled makes its complete owner
             // group unsafe to hide: Windows may hide owned windows implicitly.
             if (blockedGroups.Contains(OwnerGroup(window))) RequestShow(window.Handle);
-            else NativeWindows.Hide(window.Handle);
+            // Re-hiding an already hidden window can remove its manually retained taskbar item.
+            else if (NativeWindows.IsVisible(window.Handle) || pendingShows.Contains(window.Handle))
+            {
+                // Hiding a foreground owner can focus another member before that member's
+                // asynchronous hide completes. That fallback is not a user selection.
+                _pendingHides[window.Handle] = Environment.TickCount64;
+                _hideCompletedAt.Remove(window.Handle);
+                if (NativeWindows.Hide(window.Handle)) WindowHideRequested?.Invoke(window.Handle);
+                else _pendingHides.Remove(window.Handle);
+            }
         }
     }
 
@@ -157,6 +189,7 @@ public sealed class DesktopController
 
     public void Switch(string displayId, Guid desktopId)
     {
+        MarkVisibilityChange();
         Catalog.SwitchToDesktop(displayId, desktopId);
         ApplyVisibility();
         Changed?.Invoke();
@@ -164,6 +197,7 @@ public sealed class DesktopController
 
     public void SwitchRelative(string displayId, int delta)
     {
+        MarkVisibilityChange();
         Catalog.SwitchRelative(displayId, delta);
         ApplyVisibility();
         Changed?.Invoke();
@@ -178,6 +212,7 @@ public sealed class DesktopController
     public void RemoveDesktop(string displayId, Guid desktopId)
     {
         if (Catalog.Snapshot().First(d => d.Id == displayId).Desktops.Count <= 1) return;
+        MarkVisibilityChange();
         Catalog.RemoveDesktop(displayId, desktopId);
         ApplyVisibility();
         Changed?.Invoke();
@@ -271,6 +306,7 @@ public sealed class DesktopController
             foreach (long prepared in newlyPrepared) _journal.ConfirmRestored(prepared);
             return false;
         }
+        MarkVisibilityChange();
         Catalog.MoveWindowsToDisplay(members.Select(w => w.Handle), displayId, desktopId);
         // Native placement is posted to the owning UI thread. Discovery must not interpret its
         // old coordinates as a manual drag back while that message is still in flight.
@@ -331,8 +367,50 @@ public sealed class DesktopController
         NativeWindows.Activate(handle);
     }
 
+    private void MarkVisibilityChange()
+    {
+        VisibilityGeneration++;
+        _lastVisibilityChangeTick = Environment.TickCount64;
+        LastVisibilityChangeTime = unchecked((uint)Environment.TickCount);
+    }
+
+    private static bool EventOccurredAfter(uint eventTime, long boundary)
+    {
+        long now = Environment.TickCount64;
+        uint age = unchecked((uint)now - eventTime);
+        // A HWND can stay hidden across the 32-bit clock wrap. Compare recent event age
+        // with the 64-bit boundary instead of interpreting a days-old uint as signed.
+        return age < 10_000 && now - boundary > age;
+    }
+
+    /// <summary>Follows the exact window selected by Windows, never a process-wide guess.</summary>
+    internal bool FollowForegroundWindow(NativeWindowInfo expected, uint eventTime, long visibilityGeneration)
+    {
+        // A queued foreground event from before a move/switch must not undo that operation.
+        // WinEvent timestamps use the wrapping GetTickCount clock, not wall-clock time.
+        if (Paused || !_canHide() || visibilityGeneration != VisibilityGeneration
+            || !EventOccurredAfter(eventTime, _lastVisibilityChangeTick)
+            || NativeWindows.ForegroundWindow != expected.Handle
+            || !_windows.TryGetValue(expected.Handle, out var window) || !SameIdentity(expected, window)
+            || !_journal.Contains(window.Handle) || _displayMoves.ContainsKey(window.Handle)
+            || _pendingHides.ContainsKey(window.Handle)
+            || (_hideCompletedAt.TryGetValue(window.Handle, out long hiddenAt) && !EventOccurredAfter(eventTime, hiddenAt))
+            || !NativeWindows.IsSameWindow(window.Handle, window.ProcessId, window.ProcessStartTicks, window.ClassName)
+            || !NativeWindows.IsOnCurrentVirtualDesktop(window.Handle)
+            || !_journal.Entries.Any(entry => entry.Handle == window.Handle && RecoveryJournal.Matches(entry))) return false;
+        var assignment = Catalog.GetAssignment(window.Handle);
+        if (assignment is null || Catalog.IsWindowVisible(window.Handle)) return false;
+        // The shell may have restored a formerly minimized window. Do not put it back into
+        // its old minimized state while restoring the rest of the selected desktop.
+        if (NativeWindows.IsVisible(window.Handle)) _journal.ConfirmRestored(window.Handle);
+        Switch(assignment.DisplayId, assignment.DesktopId);
+        NativeWindows.Activate(window.Handle);
+        return true;
+    }
+
     public void TogglePause()
     {
+        MarkVisibilityChange();
         Paused = !Paused;
         ApplyVisibility();
         Changed?.Invoke();
@@ -340,6 +418,7 @@ public sealed class DesktopController
 
     public void RestoreAllAndPause()
     {
+        MarkVisibilityChange();
         Paused = true;
         _journal.RestoreAll();
         Changed?.Invoke();

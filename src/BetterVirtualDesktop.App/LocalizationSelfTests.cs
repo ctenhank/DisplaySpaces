@@ -120,8 +120,8 @@ internal static class LocalizationSelfTests
         IReadOnlyDictionary<long, NativeWindowInfo> fixtureWindows, string outputDirectory, List<string> results)
     {
         Guid created = Guid.NewGuid();
-        // An off-page destination proves creation reveals the new card, rather than leaving
-        // the pointer's old plus-card as the only visible indication of the completed action.
+        // An off-page destination must be named in the notice without scrolling away
+        // from the desktop the user was viewing before the move.
         var desktops = new List<DesktopSnapshot> { new(fixtureDisplay.ActiveDesktopId, "Desktop 1", [], 1) };
         for (int number = 2; number <= 11; number++) desktops.Add(new(Guid.NewGuid(), $"Desktop {number}", [], number));
         desktops.Add(new(created, "Desktop 12", fixtureDisplay.Desktops.SelectMany(desktop => desktop.WindowIds).ToArray(), 12));
@@ -152,14 +152,14 @@ internal static class LocalizationSelfTests
             form.ShowCreationFeedback(created);
             PumpFor(70);
             form.Refresh();
-            Require(form.HasCreationFeedback && form.SelectedDesktopId == created
+            Require(form.HasCreationFeedback && form.SelectedDesktopId == fixtureDisplay.ActiveDesktopId
                 && display.ActiveDesktopId == fixtureDisplay.ActiveDesktopId && switchRequests == 0,
-                $"Creation feedback switched a desktop instead of selecting its preview in {language.Code}.");
+                $"Creation feedback changed the current desktop or its preview in {language.Code}.");
             Require(form.CreationFeedbackTitle?.Contains(UiText.DesktopName(desktops[^1]), StringComparison.Ordinal) == true,
                 $"Creation feedback omitted the localized destination name in {language.Code}.");
             Require(form.ClientRectangle.Contains(form.CreationFeedbackBounds)
-                && form.ClientRectangle.Contains(form.DesktopCardBounds(created)),
-                $"Creation feedback or the newly created desktop card escaped the viewport in {language.Code}.");
+                && form.ClientRectangle.Contains(form.DesktopCardBounds(fixtureDisplay.ActiveDesktopId)),
+                $"Creation feedback or the original desktop card escaped the viewport in {language.Code}.");
             Require(NativeWindows.ForegroundWindow == foreground, "Creation feedback activated a window.");
             Save(form, Path.Combine(outputDirectory, $"overlay-language-{language.Code}.png"));
 
@@ -171,7 +171,7 @@ internal static class LocalizationSelfTests
                 $"Creation feedback does not fit the compact overlay in {language.Code}.");
             Save(form, Path.Combine(outputDirectory, $"overlay-language-{language.Code}-compact.png"));
         }
-        results.Add($"PASS creation feedback renders in five languages at {regularSize.Width}x{regularSize.Height} ({form.DeviceDpi} DPI) and compact 914x512, reveals its destination, and preserves desktop state and focus");
+        results.Add($"PASS creation feedback names its destination in five languages at {regularSize.Width}x{regularSize.Height} ({form.DeviceDpi} DPI) and compact 914x512 while preserving the original preview, desktop state and focus");
 
         // Language and ordinary catalog refreshes must preserve the existing notification's
         // expiry, rather than extending it on every timer tick.
@@ -190,7 +190,8 @@ internal static class LocalizationSelfTests
             PumpFor(90);
         }
         Require(!form.HasCreationFeedback && switchRequests == 0 && NativeWindows.ForegroundWindow == foreground,
-            "Polling renewed creation feedback or changed focus/desktop selection.");
+            $"Polling renewed creation feedback or changed focus/desktop selection: feedback={form.HasCreationFeedback}, "
+            + $"switches={switchRequests}, expected foreground={foreground}, actual foreground={NativeWindows.ForegroundWindow}.");
         form.UpdateSnapshot(screen, display with { ActiveDesktopId = created }, fixtureWindows);
         form.Refresh();
         Require(!form.HasCreationFeedback, "A real desktop switch was incorrectly reported as desktop creation.");
