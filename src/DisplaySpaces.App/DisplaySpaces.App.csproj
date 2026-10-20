@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets/DisplaySpaces.ico</ApplicationIcon>
+    <AssemblyName>DisplaySpaces</AssemblyName>
+    <AssemblyTitle>DisplaySpaces</AssemblyTitle>
+    <Product>DisplaySpaces</Product>
+    <RootNamespace>DisplaySpaces.App</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../DisplaySpaces.Core/DisplaySpaces.Core.csproj" />
+    <EmbeddedResource Include="Assets/DisplaySpaces.ico" LogicalName="DisplaySpaces.App.Assets.DisplaySpaces.ico" />
+  </ItemGroup>
+</Project>

@@ -7,21 +7,22 @@ param(
     [switch]$DesktopNamesOnly,
     [switch]$DisplaySwitchingOnly,
     [switch]$MoveFollowOnly,
-    [switch]$DesktopReorderOnly
+    [switch]$DesktopReorderOnly,
+    [switch]$SettingsOnly
 )
 
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 
-if (@(@($StartupOnly, $MovesOnly, $TaskbarOnly, $DesktopNamesOnly, $DisplaySwitchingOnly, $MoveFollowOnly, $DesktopReorderOnly) | Where-Object { $_ }).Count -gt 1) { throw 'Choose only one focused test mode.' }
+if (@(@($StartupOnly, $MovesOnly, $TaskbarOnly, $DesktopNamesOnly, $DisplaySwitchingOnly, $MoveFollowOnly, $DesktopReorderOnly, $SettingsOnly) | Where-Object { $_ }).Count -gt 1) { throw 'Choose only one focused test mode.' }
 
 if ($env:OS -ne 'Windows_NT') {
     throw 'Application self-tests require an interactive Windows desktop session.'
 }
 
 $repositoryRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
-$coreTests = Join-Path $repositoryRoot 'tests\BetterVirtualDesktop.Core.Tests\BetterVirtualDesktop.Core.Tests.csproj'
-$appExecutable = Join-Path $repositoryRoot 'src\BetterVirtualDesktop.App\bin\Release\net10.0-windows\BetterVirtualDesktop.exe'
+$coreTests = Join-Path $repositoryRoot 'tests\DisplaySpaces.Core.Tests\DisplaySpaces.Core.Tests.csproj'
+$appExecutable = Join-Path $repositoryRoot 'src\DisplaySpaces.App\bin\Release\net10.0-windows\DisplaySpaces.exe'
 $outputDirectory = Join-Path $repositoryRoot 'artifacts\tests'
 
 Push-Location -LiteralPath $repositoryRoot
@@ -40,7 +41,7 @@ try {
     }
 
     [System.IO.Directory]::CreateDirectory($outputDirectory) | Out-Null
-    $testMode = if ($StartupOnly) { '--self-test-startup' } elseif ($MovesOnly) { '--self-test-moves' } elseif ($TaskbarOnly) { '--self-test-taskbar' } elseif ($DesktopNamesOnly) { '--self-test-desktop-names' } elseif ($DisplaySwitchingOnly) { '--self-test-display-switching' } elseif ($MoveFollowOnly) { '--self-test-move-follow' } elseif ($DesktopReorderOnly) { '--self-test-desktop-reorder' } else { '--self-test' }
+    $testMode = if ($StartupOnly) { '--self-test-startup' } elseif ($MovesOnly) { '--self-test-moves' } elseif ($TaskbarOnly) { '--self-test-taskbar' } elseif ($DesktopNamesOnly) { '--self-test-desktop-names' } elseif ($DisplaySwitchingOnly) { '--self-test-display-switching' } elseif ($MoveFollowOnly) { '--self-test-move-follow' } elseif ($DesktopReorderOnly) { '--self-test-desktop-reorder' } elseif ($SettingsOnly) { '--self-test-settings' } else { '--self-test' }
     $testProcess = Start-Process -FilePath $appExecutable `
         -ArgumentList @($testMode, ('"' + $outputDirectory + '"')) `
         -WorkingDirectory $repositoryRoot -WindowStyle Hidden -Wait -PassThru
@@ -79,6 +80,10 @@ try {
     }
     if ($DesktopReorderOnly) {
         Get-Content -LiteralPath (Join-Path $outputDirectory 'desktop-reorder-results.txt')
+        return
+    }
+    if ($SettingsOnly) {
+        Get-Content -LiteralPath (Join-Path $outputDirectory 'settings-results.txt')
         return
     }
 

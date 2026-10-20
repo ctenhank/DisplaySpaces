@@ -11,8 +11,8 @@ Set-StrictMode -Version Latest
 # bundled versions rather than assuming that they match the installed SDK.
 $repositoryRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $publishRoot = (Resolve-Path -LiteralPath $PublishDirectory -ErrorAction Stop).ProviderPath
-$runtimeConfigPath = Join-Path $publishRoot 'BetterVirtualDesktop.runtimeconfig.json'
-$assetsPath = Join-Path $repositoryRoot 'src\BetterVirtualDesktop.App\obj\project.assets.json'
+$runtimeConfigPath = Join-Path $publishRoot 'DisplaySpaces.runtimeconfig.json'
+$assetsPath = Join-Path $repositoryRoot 'src\DisplaySpaces.App\obj\project.assets.json'
 if (-not (Test-Path -LiteralPath $runtimeConfigPath -PathType Leaf)) {
     throw "Published runtime configuration was not found: $runtimeConfigPath"
 }

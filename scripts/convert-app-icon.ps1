@@ -6,9 +6,9 @@ Set-StrictMode -Version Latest
 Add-Type -AssemblyName System.Drawing
 
 $repositoryRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
-$assetDirectory = Join-Path $repositoryRoot 'src\BetterVirtualDesktop.App\Assets'
-$sourcePath = Join-Path $assetDirectory 'BetterVirtualDesktop.png'
-$outputPath = Join-Path $assetDirectory 'BetterVirtualDesktop.ico'
+$assetDirectory = Join-Path $repositoryRoot 'src\DisplaySpaces.App\Assets'
+$sourcePath = Join-Path $assetDirectory 'DisplaySpaces.png'
+$outputPath = Join-Path $assetDirectory 'DisplaySpaces.ico'
 $sizes = @(16, 20, 24, 32, 40, 48, 64, 96, 128, 256)
 $frames = [System.Collections.Generic.List[byte[]]]::new()
 

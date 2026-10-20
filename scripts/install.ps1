@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
     [string]$PublishDirectory = (Join-Path $PSScriptRoot '..\artifacts\publish'),
-    [string]$InstallDirectory = (Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'Programs\BetterVirtualDesktop'),
+    [string]$InstallDirectory = (Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'Programs\DisplaySpaces'),
     [switch]$Launch
 )
 
@@ -33,8 +33,8 @@ function Assert-NoReparsePoints {
 function Assert-PublishedApplication {
     param([string]$Path)
     foreach ($name in @(
-        'BetterVirtualDesktop.exe', 'BetterVirtualDesktop.dll', 'BetterVirtualDesktop.deps.json',
-        'BetterVirtualDesktop.runtimeconfig.json', 'BetterVirtualDesktop.Core.dll',
+        'DisplaySpaces.exe', 'DisplaySpaces.dll', 'DisplaySpaces.deps.json',
+        'DisplaySpaces.runtimeconfig.json', 'DisplaySpaces.Core.dll',
         'coreclr.dll', 'hostfxr.dll', 'hostpolicy.dll', 'System.Windows.Forms.dll',
         'licenses\Microsoft.NETCore.App-LICENSE.TXT',
         'licenses\Microsoft.NETCore.App-THIRD-PARTY-NOTICES.TXT',
@@ -44,7 +44,7 @@ function Assert-PublishedApplication {
             throw "The self-contained publish folder is incomplete; missing $name in $Path. Run scripts\build.ps1 -Publish first."
         }
     }
-    $configuration = Get-Content -LiteralPath (Join-Path $Path 'BetterVirtualDesktop.runtimeconfig.json') -Raw | ConvertFrom-Json
+    $configuration = Get-Content -LiteralPath (Join-Path $Path 'DisplaySpaces.runtimeconfig.json') -Raw | ConvertFrom-Json
     $options = $configuration.PSObject.Properties['runtimeOptions']
     if ($null -eq $options -or $null -eq $options.Value.PSObject.Properties['includedFrameworks']) {
         throw "Only a self-contained published application can be installed: $Path"
@@ -59,12 +59,12 @@ function Assert-PublishedApplication {
 
 function Assert-ApplicationStopped {
     param([string]$Executable, [switch]$BeforeLaunch)
-    foreach ($process in @(Get-Process -Name 'BetterVirtualDesktop', 'IndependentVirtualDesktop' -ErrorAction SilentlyContinue)) {
+    foreach ($process in @(Get-Process -Name 'DisplaySpaces', 'BetterVirtualDesktop', 'IndependentVirtualDesktop' -ErrorAction SilentlyContinue)) {
         try {
             $processPath = $process.Path
             if ($BeforeLaunch -or [string]::IsNullOrEmpty($processPath) -or
                 [string]::Equals($processPath, $Executable, [StringComparison]::OrdinalIgnoreCase)) {
-                throw "Close BetterVirtualDesktop using its tray menu (Exit and restore all windows), then retry. Process $($process.Id) is still running."
+                throw "Close DisplaySpaces and any older BetterVirtualDesktop or IndependentVirtualDesktop app using its tray menu (Exit and restore all windows), then retry. Process $($process.Id) is still running."
             }
         }
         finally {
@@ -80,7 +80,7 @@ function Remove-InstallerDirectory {
     $expected = [System.IO.Path]::GetFullPath((Join-Path $Parent $ExpectedLeaf))
     if (-not [string]::Equals($absolute, $expected, [StringComparison]::OrdinalIgnoreCase) -or
         -not [string]::Equals([System.IO.Path]::GetDirectoryName($absolute), $Parent, [StringComparison]::OrdinalIgnoreCase) -or
-        $ExpectedLeaf -notmatch '^\.BetterVirtualDesktop\.(stage|backup)-[0-9a-f]{32}$') {
+        $ExpectedLeaf -notmatch '^\.DisplaySpaces\.(stage|backup)-[0-9a-f]{32}$') {
         throw "Refusing to remove an unexpected installer path: $absolute"
     }
     if (Test-Path -LiteralPath $absolute) {
@@ -91,8 +91,8 @@ function Remove-InstallerDirectory {
 
 $publishRoot = (Resolve-Path -LiteralPath $PublishDirectory).ProviderPath.TrimEnd('\', '/')
 $installRoot = [System.IO.Path]::GetFullPath($InstallDirectory).TrimEnd('\', '/')
-if ([System.IO.Path]::GetFileName($installRoot) -ne 'BetterVirtualDesktop') {
-    throw 'The installation directory must be named BetterVirtualDesktop. Use one stable directory for every update.'
+if ([System.IO.Path]::GetFileName($installRoot) -ne 'DisplaySpaces') {
+    throw 'The installation directory must be named DisplaySpaces. Use one stable directory for every update.'
 }
 $installParent = [System.IO.Path]::GetDirectoryName($installRoot)
 if ([string]::IsNullOrEmpty($installParent) -or
@@ -106,7 +106,7 @@ Assert-NoReparsePoints -Path $installRoot -IncludeChildren
 Assert-PublishedApplication -Path $publishRoot
 
 # A marker prevents updates from replacing an unrelated existing directory.
-$markerName = '.bettervirtualdesktop-install.json'
+$markerName = '.displayspaces-install.json'
 if (Test-Path -LiteralPath $installRoot) {
     if (-not (Test-Path -LiteralPath $installRoot -PathType Container)) {
         throw "The installation path is not a directory: $installRoot"
@@ -117,7 +117,7 @@ if (Test-Path -LiteralPath $installRoot) {
             throw "The existing directory is not managed by this installer: $installRoot"
         }
         $marker = Get-Content -LiteralPath $markerPath -Raw | ConvertFrom-Json
-        if ($null -eq $marker.PSObject.Properties['product'] -or $marker.product -ne 'BetterVirtualDesktop' -or
+        if ($null -eq $marker.PSObject.Properties['product'] -or $marker.product -ne 'DisplaySpaces' -or
             $null -eq $marker.PSObject.Properties['schemaVersion'] -or $marker.schemaVersion -ne 1) {
             throw "The existing directory has an unrecognized installation marker: $installRoot"
         }
@@ -125,12 +125,12 @@ if (Test-Path -LiteralPath $installRoot) {
     }
 }
 
-$installedExecutable = Join-Path $installRoot 'BetterVirtualDesktop.exe'
+$installedExecutable = Join-Path $installRoot 'DisplaySpaces.exe'
 Assert-ApplicationStopped -Executable $installedExecutable -BeforeLaunch:$Launch
-$installationLock = [System.Threading.Mutex]::new($false, 'Local\BetterVirtualDesktop.Install')
+$installationLock = [System.Threading.Mutex]::new($false, 'Local\DisplaySpaces.Install')
 $lockHeld = $false
-$stageLeaf = '.BetterVirtualDesktop.stage-' + [guid]::NewGuid().ToString('N')
-$backupLeaf = '.BetterVirtualDesktop.backup-' + [guid]::NewGuid().ToString('N')
+$stageLeaf = '.DisplaySpaces.stage-' + [guid]::NewGuid().ToString('N')
+$backupLeaf = '.DisplaySpaces.backup-' + [guid]::NewGuid().ToString('N')
 $stagePath = Join-Path $installParent $stageLeaf
 $backupPath = Join-Path $installParent $backupLeaf
 $previousMoved = $false
@@ -138,14 +138,14 @@ $installed = $false
 try {
     try { $lockHeld = $installationLock.WaitOne(0) }
     catch [System.Threading.AbandonedMutexException] { $lockHeld = $true }
-    if (-not $lockHeld) { throw 'Another BetterVirtualDesktop installation is already in progress.' }
+    if (-not $lockHeld) { throw 'Another DisplaySpaces installation is already in progress.' }
     [void][System.IO.Directory]::CreateDirectory($installParent)
     [void][System.IO.Directory]::CreateDirectory($stagePath)
     foreach ($item in @(Get-ChildItem -LiteralPath $publishRoot -Force)) {
         Copy-Item -LiteralPath $item.FullName -Destination $stagePath -Recurse -Force
     }
     Assert-PublishedApplication -Path $stagePath
-    @{ product = 'BetterVirtualDesktop'; schemaVersion = 1 } |
+    @{ product = 'DisplaySpaces'; schemaVersion = 1 } |
         ConvertTo-Json | Set-Content -LiteralPath (Join-Path $stagePath $markerName) -Encoding UTF8
 
     # Recheck immediately before swapping. Never terminate a process that may own hidden windows.

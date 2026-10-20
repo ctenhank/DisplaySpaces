@@ -1,88 +1,129 @@
-# BetterVirtualDesktop
+# DisplaySpaces
 
-<img src="src/BetterVirtualDesktop.App/Assets/BetterVirtualDesktop.png" width="96" alt="BetterVirtualDesktop icon" />
+<img src="src/DisplaySpaces.App/Assets/DisplaySpaces.png" width="96" alt="DisplaySpaces icon" />
 
-Windows 11에서 **모니터마다 가상 데스크톱을 독립적으로 전환**하는 앱입니다. 기본 설정에서는 한 모니터의 작업 공간을 바꿔도 다른 모니터의 창은 그대로 유지되며, 모든 모니터를 함께 전환하는 방식도 선택할 수 있습니다.
+**Independent virtual desktops for every monitor on Windows 11.** Switch workspaces on one monitor while leaving the others unchanged, or choose linked switching to move all monitors together.
 
-## 핵심 기능
+## Features
 
-- **모니터별 데스크톱:** 각 디스플레이에서 데스크톱 생성·전환·이름 변경·삭제.
-- **데스크톱 순서 변경:** 오버레이 카드를 드래그하거나 우클릭으로 좌우 이동. 이름과 창은 해당 데스크톱에 유지.
-- **디스플레이 전환 방식:** 개별 전환·함께 전환 선택 및 저장. 단축키와 데스크톱 카드 선택에 동일하게 적용.
-- **작업 보기 오버레이:** 모든 모니터에 데스크톱 목록과 창 미리보기 표시.
-- **창 이동:** 드래그·우클릭·단축키로 다른 데스크톱·모니터에 이동. 기본적으로 현재 화면을 유지하며, 이전·다음 이동 단축키는 목적지 데스크톱 따라가기를 선택 가능.
-- **작업 표시줄에서 전환:** 앱 아이콘이나 창 미리보기로 선택한 창의 데스크톱으로 전환. 같은 앱의 여러 창도 구분하며 선택한 디스플레이 전환 방식 적용.
-- **상태 안내:** 생성·이동 완료 알림, 선택 카드 강조, 데스크톱 이름 표시 방식·위치 선택 및 저장.
-- **다국어:** 한국어·영어·중국어 간체/번체·일본어. 언어 선택은 즉시 적용하고 저장.
-- **단축키 설정:** 기능별 키 조합 변경·해제, Windows 기본키 프리셋, 설정 저장.
-- **데스크톱 순환 선택:** 이전·다음 전환 시 양 끝에서 멈추거나 반대편으로 순환하도록 설정.
-- **자동 실행 선택:** 트레이 메뉴에서 Windows 로그인 시 백그라운드 실행을 켜거나 끄기.
-- **창 복구:** 종료 시 숨긴 창을 복원하고, 비정상 종료에 대비한 별도 복구 프로세스 제공.
+- **Desktops per monitor:** Create, switch, rename, and delete desktops on each display.
+- **Desktop ordering:** Drag desktop cards or move them left and right from a context menu. Names and windows stay with their desktops.
+- **Independent or linked switching:** Choose whether shortcuts and desktop selections affect one monitor or all monitors.
+- **Task View overlay:** Browse desktop cards and window previews on every monitor.
+- **Window movement:** Move windows between desktops and displays using drag-and-drop, context menus, or shortcuts. Moving a window keeps your current view by default; previous/next move shortcuts can optionally follow it.
+- **Taskbar switching:** Select an app icon or window preview to open that window's desktop. Multiple windows from the same app are handled individually, using your selected display switching mode.
+- **Clear feedback:** Creation and movement notifications, highlighted cards, and configurable desktop name indicators.
+- **Five languages:** English, Korean, Simplified Chinese, Traditional Chinese, and Japanese. Language changes apply immediately and are saved.
+- **Custom shortcuts:** Change or disable individual key bindings, use a Windows shortcuts preset, and save your preferences.
+- **Optional wraparound:** Stop at the first and last desktops or loop to the opposite end.
+- **Optional startup:** Run in the background when you sign in to Windows.
+- **Unified settings:** Configure language, startup, desktop switching, name indicators, and shortcuts from one settings window.
+- **Window recovery:** Restore hidden windows when exiting, with a separate recovery process for unexpected shutdowns.
 
-## 주요 단축키 (초기 설정)
+## Download and run
 
-| 동작 | 단축키 |
+Download `DisplaySpaces-1.0.0-win-x64.zip` from [GitHub Releases](https://github.com/ctenhank/DisplaySpaces/releases/latest), extract the entire archive, and run `DisplaySpaces.exe`.
+
+Version **1.0.0** requires **Windows 11 x64**. The release includes the .NET runtime; you do not need to install the SDK or runtime separately. Keep the extracted files together and reuse the same folder when updating.
+
+For a stable installation path, run this command from the extracted folder.
+Before installing or updating, exit any running copy through **Exit · Restore all windows** in its tray menu.
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\install.ps1 -PublishDirectory . -Launch
+```
+
+This installs the app under `%LOCALAPPDATA%\Programs\DisplaySpaces` and starts it in the background. The execution-policy option applies only to this PowerShell process.
+
+**Upgrading from BetterVirtualDesktop:** Exit the old app through **Exit · Restore all windows**, then install DisplaySpaces using the command above. If you use automatic startup, enable **Start with Windows** again under **Settings → General** in DisplaySpaces to register the new executable location. Your preferences remain in `%LOCALAPPDATA%\IndependentVirtualDesktop` and are reused automatically.
+
+## Default shortcuts
+
+| Action | Shortcut |
 | --- | --- |
-| 모든 모니터의 작업 보기 열기 / 닫기 | `Win + Alt + Tab` |
-| 마우스가 있는 모니터를 기준으로 이전 / 다음 데스크톱 | `Win + Ctrl + ← / →` |
-| 데스크톱 생성 후 전환 | `Win + Ctrl + D` |
-| 현재 데스크톱 삭제 | `Win + Ctrl + F4` |
-| 현재 창을 이전 / 다음 데스크톱으로 이동 | `Win + Ctrl + Shift + ← / →` |
-| 모든 창 복구 후 일시 정지 | `Win + Ctrl + Shift + F12` |
+| Show / hide the overlay on all monitors | `Win + Alt + Tab` |
+| Previous / next desktop, using the monitor under the pointer | `Win + Ctrl + ← / →` |
+| Create and open a desktop | `Win + Ctrl + D` |
+| Delete the current desktop | `Win + Ctrl + F4` |
+| Move the current window to the previous / next desktop | `Win + Ctrl + Shift + ← / →` |
+| Restore all windows and pause | `Win + Ctrl + Shift + F12` |
 
-작업 보기에서는 `← / →`로 미리 보고, `Enter`로 전환하며, `Esc`로 닫습니다. 초기 설정에서는 `Win + Tab`이 Windows 기본 작업 보기를 엽니다.
+In the overlay, use `← / →` to preview desktops, `Enter` to switch, and `Esc` to close. By default, `Win + Tab` continues to open Windows Task View.
 
-**데스크톱 순서 변경:** 작업 보기 하단의 데스크톱 카드를 끌어 원하는 위치의 표시선에 놓으세요. 카드의 우클릭 메뉴 또는 `…` 메뉴에서 **왼쪽으로 이동 / 오른쪽으로 이동**을 선택할 수도 있습니다. 관리 창에서는 데스크톱 제목을 우클릭해 같은 메뉴를 사용합니다. 첫 번째 카드는 더 왼쪽으로, 마지막 카드는 더 오른쪽으로 이동할 수 없습니다.
+Open **Settings… → Shortcuts → Keyboard shortcuts…** from the system tray menu to change or disable bindings. The overlay and desktop management window also offer **Keyboard shortcuts…** directly. Choose the **Windows shortcuts** preset and save to assign `Win + Tab` to this app's overlay while it is running. Saved changes apply immediately and persist between runs. Duplicate bindings and unsupported system shortcuts are reported before saving.
 
-이름은 위치와 별개로 유지합니다. 예를 들어 `데스크톱 1 · 2 · 3`에서 2를 맨 앞으로 옮기면 `데스크톱 2 · 1 · 3`이 되며, 그 안의 창과 현재 보고 있는 데스크톱은 그대로입니다. 용도에 따라 **작업·개인·게임**처럼 이름을 붙이면 순서가 바뀌어도 알아보기 쉽습니다. 이전·다음 이동과 처음·마지막 표시는 바뀐 순서를 따릅니다. 순서 변경은 선택한 모니터에 적용되며, **함께 전환**에서도 다른 모니터의 순서를 바꾸지는 않습니다. 다음에 함께 전환하면 변경된 순서를 기준으로 각 모니터의 같은 위치를 엽니다.
+## Settings
 
-작업 보기 상단·관리 창·트레이의 **단축키 설정**에서 키 조합을 변경하거나 해제할 수 있습니다. **Windows 기본키 사용**을 선택하고 저장하면 `Win + Tab`으로 이 앱의 작업 보기를 엽니다. 저장한 설정은 즉시 적용되고 다음 실행에도 유지됩니다. 중복 조합과 지원하지 않는 시스템 키는 저장 전에 안내합니다.
+Right-click the DisplaySpaces system tray icon and choose **Settings…**. Options are grouped into four tabs:
 
-트레이 메뉴의 **디스플레이 전환 방식**에서 **개별 전환**(기본값) 또는 **함께 전환**을 선택하세요. 개별 전환은 단축키의 경우 마우스가 있는 모니터, 카드 선택의 경우 클릭한 모니터만 바꿉니다. 함께 전환은 모든 모니터를 같은 순서의 데스크톱으로 맞추며, 해당 순서가 없는 모니터에는 빈 데스크톱을 자동으로 만듭니다. 예를 들어 세 번째 카드를 선택하면 모든 모니터가 각자의 세 번째 데스크톱으로 전환됩니다. 이름과 창 배정은 모니터별로 유지합니다. 설정을 선택하는 즉시 화면이 바뀌지는 않으며, 다음 전환부터 적용되고 재실행해도 유지됩니다.
+| Tab | Options |
+| --- | --- |
+| **General** | Language and **Start with Windows** |
+| **Desktops** | **Display switching mode**, **Wrap desktop switching**, and **Follow window to its desktop** |
+| **Appearance** | **Show desktop names** and **Desktop name position** |
+| **Shortcuts** | Open **Keyboard shortcuts…** to edit bindings and choose presets |
 
-함께 전환에서 이전·다음 단축키의 전체 범위는 모니터 중 가장 많은 데스크톱 개수입니다. 작업 표시줄에서 창을 선택하거나 새 데스크톱을 만든 뒤 전환할 때도 같은 방식을 적용합니다.
+Changes in Settings are saved and applied immediately. The separate shortcut editor uses **Save changes** and **Cancel**. DisplaySpaces shortcuts and taskbar desktop switching pause while Settings is open; close Settings to use them again. Desktop name indicators are also hidden while Settings is open.
 
-트레이 메뉴의 **창 이동 후 데스크톱 따라가기**를 켜면 `Win + Ctrl + Shift + ← / →`로 창을 옮길 때 목적지 데스크톱도 함께 엽니다. 사용자 지정 이전·다음 창 이동 단축키에도 적용됩니다. 기본값은 꺼짐이며, 설정은 저장됩니다. 개별 전환에서는 창이 속한 모니터만, 함께 전환에서는 모든 모니터가 목적지 순서로 전환됩니다. 드래그·우클릭으로 대상 데스크톱을 지정하거나 새 데스크톱 카드에 놓을 때는 현재 화면을 유지합니다.
+## Using desktops
 
-트레이 메뉴의 **데스크톱 순환 전환**을 끄면 이전·다음 데스크톱 전환 단축키가 양 끝에서 멈춥니다. 예를 들어 데스크톱이 1·2일 때, 1에서 `Win + Ctrl + ←`를 눌러도 1에 머무르고 2에서 `Win + Ctrl + →`를 눌러도 2에 머무릅니다. 기본값은 기존 동작과 같은 켜짐이며, 선택은 저장됩니다.
+**Reorder desktops:** Drag a desktop card at the bottom of the overlay and drop it at the insertion marker. You can also choose **Move left** or **Move right** from the card's right-click or `…` menu, or by right-clicking a desktop heading in the management window. Cards stop at the first and last positions.
 
-트레이 메뉴의 **Windows 시작 시 자동 실행**을 켜면 로그인할 때 오버레이를 열지 않고 백그라운드에서 실행합니다. 초기값은 꺼짐입니다. 배포 폴더를 옮긴 경우 새 위치의 앱을 실행해 이 항목을 다시 켜세요. Windows **설정 → 앱 → 시작 프로그램**에서 앱을 끄면 자동 실행이 차단됩니다.
+Names belong to desktops, not positions. Moving Desktop 2 to the front of `Desktop 1 · 2 · 3` produces `Desktop 2 · 1 · 3`. Its windows stay with it, and your active desktop stays open. Names such as **Work**, **Personal**, and **Games** remain easy to recognize after reordering. Previous/next navigation and first/last indicators follow the new order.
 
-트레이 메뉴의 **데스크톱 이름 표시**에서 **표시 안 함 / 전환할 때만 / 항상 표시**를 선택할 수 있습니다. 기본값은 **전환할 때만**으로, 전환한 모니터에 약 1.8초 표시합니다. **항상 표시**는 각 모니터의 현재 데스크톱 이름을 계속 보여줍니다. 같은 메뉴의 **데스크톱 이름 표시 위치**에서 오른쪽 위·왼쪽 위를 선택할 수 있으며, 표시 방식과 위치는 재실행해도 유지됩니다. 작업 보기·관리 창을 열거나 일시 정지하면 이름 표시를 잠시 숨깁니다.
+**Choose a display switching mode:** In **Settings → Desktops**, set **Display switching mode** to **Independent** (default) or **Linked**. Independent switching affects the monitor under the pointer for shortcuts, or the monitor whose desktop card you click. Linked switching opens the same desktop position on every monitor, creating empty desktops where needed. For example, selecting the third card opens each monitor's third desktop. Each monitor keeps its own names and window assignments.
 
-이름 표시를 켜면 **첫 번째 데스크톱 / 마지막 데스크톱**도 함께 안내합니다. 데스크톱이 하나뿐이면 **첫 번째이자 마지막 데스크톱**으로 표시합니다. 순환을 끈 상태에서 끝을 넘어가려는 단축키를 눌러도 현재 이름과 위치 안내를 보여줍니다.
+The mode takes effect on the next switch and is saved between runs. In Linked mode, previous/next navigation uses the largest desktop count across all monitors. Taskbar selection and creating and opening a desktop also follow the selected mode. Reordering changes only the selected monitor's order; the next linked switch uses the updated positions.
 
-크롬처럼 창이 여러 개인 앱은 작업 표시줄의 창 목록에서 원하는 창을 선택하세요. Windows가 실제로 선택한 창을 따라가므로 다른 창을 임의로 고르지 않습니다. 숨겨진 창의 작업 표시줄 미리보기는 앱에 따라 마지막 화면이나 아이콘으로 표시될 수 있습니다.
+**Follow a moved window:** Enable **Follow window to its desktop** in **Settings → Desktops** to open the destination when using previous/next window movement shortcuts, including custom bindings. This option is off by default and is saved. Independent mode switches the window's monitor; Linked mode switches every monitor to the destination position. Dragging a window, choosing a destination from its context menu, or dropping it on **New desktop** keeps your current view.
 
-## 빌드 및 실행
+**Stop at the ends:** Turn off **Wrap desktop switching** in **Settings → Desktops** to stop previous/next desktop shortcuts at the first and last desktops. With two desktops, pressing `Win + Ctrl + ←` on Desktop 1 stays on Desktop 1, and pressing `Win + Ctrl + →` on Desktop 2 stays on Desktop 2. Wraparound is on by default; your choice is saved.
 
-Windows 11 x64와 .NET 10 SDK가 필요합니다.
+**Show desktop names:** In **Settings → Appearance**, set **Show desktop names** to **Off**, **When switching**, or **Always**. The default, **When switching**, displays the name on the affected monitor for about 1.8 seconds. **Always** shows each monitor's current desktop name continuously. Choose **Top right** or **Top left** under **Desktop name position**; this choice is disabled when name display is Off. These preferences are saved. Indicators temporarily hide while an overlay, the management window, Settings, or the shortcut editor is open, or while the app is paused.
+
+Name indicators also identify the **first** and **last** desktops, or both when there is only one desktop. With wraparound off, attempting to switch past an end still displays the current name and position.
+
+**Select a taskbar window:** For apps with several windows, such as Chrome, choose the desired window from the taskbar's window list. DisplaySpaces follows the window Windows actually selects. Depending on the app, a hidden window's taskbar preview may show its last image or an icon.
+
+**Start with Windows:** Enable this option in **Settings → General** to run in the background at sign-in without opening the overlay. It is off by default. If you move the app, run it from its new location and enable the option again to update the registered path. Windows **Settings → Apps → Startup** can disable startup separately.
+
+## Build and install from source
+
+Building requires Windows 11 x64 and the .NET 10 SDK.
 
 ```powershell
 .\scripts\build.ps1 -Install
-& "$env:LOCALAPPDATA\Programs\BetterVirtualDesktop\BetterVirtualDesktop.exe"
+& "$env:LOCALAPPDATA\Programs\DisplaySpaces\DisplaySpaces.exe"
 ```
 
-설치 위치는 `%LOCALAPPDATA%\Programs\BetterVirtualDesktop`입니다. 업데이트할 때도 같은 경로를 사용하세요. 버전마다 다른 폴더의 실행 파일을 실행하면 Windows의 **기타 시스템 트레이 아이콘** 목록에 별도 기록이 남을 수 있습니다. 업데이트 전에 트레이 메뉴의 **종료 · 모든 창 복구**로 앱을 종료합니다. 설치기는 실행 중인 설치 파일을 교체하지 않으며, 파일 교체에 실패하면 이전 설치를 복원합니다.
+The installer uses `%LOCALAPPDATA%\Programs\DisplaySpaces`. Reuse this path for updates: running executables from a different folder for each version can leave separate entries in Windows' **Other system tray icons** settings. Before updating, select **Exit · Restore all windows** in the tray menu. The installer refuses to replace a running installation and restores the previous installation if file replacement fails.
 
-이미 만든 배포본은 `.\scripts\install.ps1 -PublishDirectory .\artifacts\publish -Launch`로 설치하고 백그라운드에서 실행할 수 있습니다. 이전 경로에서 자동 실행을 켰다면 설치된 앱의 트레이 메뉴에서 다시 켜서 경로를 갱신하세요. 기존 언어·단축키·표시 설정은 유지합니다.
+To install an existing published build and launch it in the background:
 
-설치 없이 배포 폴더만 만들려면 `.\scripts\build.ps1 -Publish`를 사용합니다. 배포 폴더는 .NET 런타임을 포함하므로 다른 PC에 폴더 전체를 복사할 수 있습니다.
+```powershell
+.\scripts\install.ps1 -PublishDirectory .\artifacts\publish -Launch
+```
+
+If startup was enabled at an earlier location, enable **Start with Windows** again under **Settings → General** in the installed app to update its path. Existing language, shortcut, and display preferences are preserved.
+
+To create a portable publish folder without installing, run `.\scripts\build.ps1 -Publish`. It includes the .NET runtime, so you can copy the entire folder to another compatible PC.
+
+Run the tests with:
 
 ```powershell
 .\scripts\test.ps1
 ```
 
-## 개발 환경
+## Development environment
 
-- **개발·검증:** Windows 11 x64, 다중 모니터 환경
-- **언어·UI:** C#, .NET 10, Windows Forms
-- **창 제어·미리보기:** Windows API(Win32), DWM
-- **도구:** Codex 데스크톱 앱, PowerShell, .NET CLI — 검증 SDK `10.0.400`
-- **AI 활용:** **ChatGPT Astra Ultra**의 도움을 받아 설계·구현·테스트·문서 작업을 진행했습니다. 앱 아이콘은 ImageGen으로 제작했습니다.
+- **Development and validation:** Windows 11 x64 with multiple monitors
+- **Language and UI:** C#, .NET 10, Windows Forms
+- **Window management and previews:** Windows APIs (Win32), DWM
+- **Tools:** Codex desktop app, PowerShell, .NET CLI; validated with SDK `10.0.400`
+- **AI assistance:** Designed, implemented, tested, and documented with help from **ChatGPT Astra Ultra**. The app icon was created with ImageGen.
 
-## 참고
+## Limitations
 
-Windows 기본 가상 데스크톱과 별도로 창의 표시·숨김을 관리합니다. 데스크톱 구성과 창 배정은 실행 중에만 유지되며, 관리자 권한 앱이나 일부 특수 창은 제어가 제한될 수 있습니다.
+DisplaySpaces manages window visibility separately from Windows' built-in virtual desktops. Desktop layouts and window assignments last only for the current app session. Elevated apps and some specialized windows may have limited support.
 
-자세한 동작과 검증 범위는 [구현 문서](docs/architecture.md)를 참고하세요.
+See the [implementation notes](docs/architecture.md) for details about behavior and validation.
