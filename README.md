@@ -35,8 +35,6 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\install.ps1 -P
 
 This installs the app under `%LOCALAPPDATA%\Programs\DisplaySpaces` and starts it in the background. The execution-policy option applies only to this PowerShell process.
 
-**Upgrading from BetterVirtualDesktop:** Exit the old app through **Exit · Restore all windows**, then install DisplaySpaces using the command above. If you use automatic startup, enable **Start with Windows** again under **Settings → General** in DisplaySpaces to register the new executable location. Your preferences remain in `%LOCALAPPDATA%\IndependentVirtualDesktop` and are reused automatically.
-
 ## Default shortcuts
 
 | Action | Shortcut |
