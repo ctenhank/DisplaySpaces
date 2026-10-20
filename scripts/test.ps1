@@ -3,13 +3,17 @@ param(
     [switch]$SkipBuild,
     [switch]$StartupOnly,
     [switch]$MovesOnly,
-    [switch]$TaskbarOnly
+    [switch]$TaskbarOnly,
+    [switch]$DesktopNamesOnly,
+    [switch]$DisplaySwitchingOnly,
+    [switch]$MoveFollowOnly,
+    [switch]$DesktopReorderOnly
 )
 
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 
-if (@(@($StartupOnly, $MovesOnly, $TaskbarOnly) | Where-Object { $_ }).Count -gt 1) { throw 'Choose only one focused test mode.' }
+if (@(@($StartupOnly, $MovesOnly, $TaskbarOnly, $DesktopNamesOnly, $DisplaySwitchingOnly, $MoveFollowOnly, $DesktopReorderOnly) | Where-Object { $_ }).Count -gt 1) { throw 'Choose only one focused test mode.' }
 
 if ($env:OS -ne 'Windows_NT') {
     throw 'Application self-tests require an interactive Windows desktop session.'
@@ -36,7 +40,7 @@ try {
     }
 
     [System.IO.Directory]::CreateDirectory($outputDirectory) | Out-Null
-    $testMode = if ($StartupOnly) { '--self-test-startup' } elseif ($MovesOnly) { '--self-test-moves' } elseif ($TaskbarOnly) { '--self-test-taskbar' } else { '--self-test' }
+    $testMode = if ($StartupOnly) { '--self-test-startup' } elseif ($MovesOnly) { '--self-test-moves' } elseif ($TaskbarOnly) { '--self-test-taskbar' } elseif ($DesktopNamesOnly) { '--self-test-desktop-names' } elseif ($DisplaySwitchingOnly) { '--self-test-display-switching' } elseif ($MoveFollowOnly) { '--self-test-move-follow' } elseif ($DesktopReorderOnly) { '--self-test-desktop-reorder' } else { '--self-test' }
     $testProcess = Start-Process -FilePath $appExecutable `
         -ArgumentList @($testMode, ('"' + $outputDirectory + '"')) `
         -WorkingDirectory $repositoryRoot -WindowStyle Hidden -Wait -PassThru
@@ -59,6 +63,22 @@ try {
     }
     if ($TaskbarOnly) {
         Get-Content -LiteralPath (Join-Path $outputDirectory 'taskbar-results.txt')
+        return
+    }
+    if ($DesktopNamesOnly) {
+        Get-Content -LiteralPath (Join-Path $outputDirectory 'desktop-name-results.txt')
+        return
+    }
+    if ($DisplaySwitchingOnly) {
+        Get-Content -LiteralPath (Join-Path $outputDirectory 'display-switching-results.txt')
+        return
+    }
+    if ($MoveFollowOnly) {
+        Get-Content -LiteralPath (Join-Path $outputDirectory 'window-move-follow-results.txt')
+        return
+    }
+    if ($DesktopReorderOnly) {
+        Get-Content -LiteralPath (Join-Path $outputDirectory 'desktop-reorder-results.txt')
         return
     }
 

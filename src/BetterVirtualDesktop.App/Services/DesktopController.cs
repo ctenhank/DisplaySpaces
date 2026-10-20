@@ -17,7 +17,20 @@ public sealed class DesktopController
     private long _lastVisibilityChangeTick = Environment.TickCount64;
     public WorkspaceCatalog Catalog { get; } = new();
     public bool Paused { get; private set; }
+    public bool WrapDesktopSwitching { get; set; } = true;
+    public bool FollowMovedWindow { get; set; }
+    private DisplaySwitchingMode _switchingMode = DisplaySwitchingMode.Independent;
+    public DisplaySwitchingMode SwitchingMode
+    {
+        get => _switchingMode;
+        set
+        {
+            if (!Enum.IsDefined(value)) throw new ArgumentOutOfRangeException(nameof(value));
+            _switchingMode = value;
+        }
+    }
     public event Action? Changed;
+    public event Action<string>? SwitchBoundaryReached;
     internal event Action<long>? WindowHideRequested;
     public IReadOnlyDictionary<long, NativeWindowInfo> Windows => _windows;
     public int UnmanageableCount => _unmanageable.Count;
@@ -189,18 +202,34 @@ public sealed class DesktopController
 
     public void Switch(string displayId, Guid desktopId)
     {
-        MarkVisibilityChange();
-        Catalog.SwitchToDesktop(displayId, desktopId);
-        ApplyVisibility();
-        Changed?.Invoke();
+        var before = Catalog.Snapshot();
+        Catalog.SwitchToDesktop(displayId, desktopId, SwitchingMode);
+        CompleteSwitch(before);
     }
 
     public void SwitchRelative(string displayId, int delta)
     {
+        var before = Catalog.Snapshot();
+        bool wrapAround = WrapDesktopSwitching;
+        Catalog.SwitchRelative(displayId, delta, wrapAround, SwitchingMode);
+        if (!CompleteSwitch(before) && !wrapAround && delta != 0)
+            SwitchBoundaryReached?.Invoke(displayId);
+    }
+
+    private bool CompleteSwitch(IReadOnlyList<DisplaySnapshot> before)
+    {
+        var after = Catalog.Snapshot();
+        bool changed = before.Count != after.Count || before.Any(previous =>
+        {
+            var current = after.FirstOrDefault(d => d.Id == previous.Id);
+            return current is null || previous.ActiveDesktopId != current.ActiveDesktopId
+                || previous.Desktops.Count != current.Desktops.Count;
+        });
+        if (!changed) return false;
         MarkVisibilityChange();
-        Catalog.SwitchRelative(displayId, delta);
         ApplyVisibility();
         Changed?.Invoke();
+        return true;
     }
 
     public void AddDesktop(string displayId)
@@ -211,17 +240,40 @@ public sealed class DesktopController
 
     public void RemoveDesktop(string displayId, Guid desktopId)
     {
-        if (Catalog.Snapshot().First(d => d.Id == displayId).Desktops.Count <= 1) return;
-        MarkVisibilityChange();
+        var before = Catalog.Snapshot();
+        var display = before.First(d => d.Id == displayId);
+        if (display.Desktops.Count <= 1) return;
         Catalog.RemoveDesktop(displayId, desktopId);
-        ApplyVisibility();
-        Changed?.Invoke();
+        if (display.ActiveDesktopId == desktopId && SwitchingMode == DisplaySwitchingMode.Linked)
+        {
+            var active = Catalog.Snapshot().First(d => d.Id == displayId).ActiveDesktopId;
+            Catalog.SwitchToDesktop(displayId, active, SwitchingMode);
+        }
+        CompleteSwitch(before);
     }
 
     public void RenameDesktop(string displayId, Guid desktopId, string name)
     {
         Catalog.RenameDesktop(displayId, desktopId, name);
         Changed?.Invoke();
+    }
+
+    /// <summary>Changes only this display's desktop order, without switching or changing window visibility.</summary>
+    public bool ReorderDesktop(string displayId, Guid desktopId, int targetIndex)
+    {
+        bool reordered;
+        try
+        {
+            reordered = Catalog.ReorderDesktop(displayId, desktopId, targetIndex);
+        }
+        catch (ArgumentException)
+        {
+            // A menu or drag can outlive the display or desktop it was created for.
+            return false;
+        }
+        if (!reordered) return false;
+        Changed?.Invoke();
+        return true;
     }
 
     public void MoveWindow(long handle, Guid desktopId)
@@ -267,7 +319,10 @@ public sealed class DesktopController
     }
 
     /// <summary>Moves a complete owner/dialog group to the chosen display and desktop, without switching either display.</summary>
-    public bool MoveWindowToDisplay(long handle, string displayId, Guid desktopId)
+    public bool MoveWindowToDisplay(long handle, string displayId, Guid desktopId) =>
+        MoveWindowToDisplayCore(handle, displayId, desktopId);
+
+    private bool MoveWindowToDisplayCore(long handle, string displayId, Guid desktopId, bool follow = false)
     {
         if (!_windows.TryGetValue(handle, out var selected)) return false;
         var destination = Catalog.Snapshot().FirstOrDefault(d => d.Id == displayId);
@@ -284,8 +339,10 @@ public sealed class DesktopController
         var target = screens.FirstOrDefault(s => s.DeviceName == displayId);
         var source = screens.FirstOrDefault(s => s.DeviceName == original.DisplayId);
         if (target is null || source is null || (crossDisplay && members.Any(w => _displayMoves.ContainsKey(w.Handle)))) return false;
+        bool canHide = !Paused && _canHide();
+        bool followDestination = follow && canHide;
         var newlyPrepared = new List<long>();
-        if (!Paused && _canHide() && destination.ActiveDesktopId != desktopId)
+        if (canHide && !followDestination && destination.ActiveDesktopId != desktopId)
         {
             // Establish recoverability for the entire group before moving it to an inactive
             // desktop. An inaccessible owned dialog must not be left visible on that desktop.
@@ -308,6 +365,9 @@ public sealed class DesktopController
         }
         MarkVisibilityChange();
         Catalog.MoveWindowsToDisplay(members.Select(w => w.Handle), displayId, desktopId);
+        // Relative moves can follow the owner group. Change both catalog states before
+        // applying visibility so the foreground window is never briefly hidden.
+        if (followDestination) Catalog.SwitchToDesktop(displayId, desktopId, SwitchingMode);
         // Native placement is posted to the owning UI thread. Discovery must not interpret its
         // old coordinates as a manual drag back while that message is still in flight.
         if (crossDisplay)
@@ -347,16 +407,25 @@ public sealed class DesktopController
     private sealed record PendingDisplayMove(long[] Handles, WindowAssignment Original,
         string TargetDisplayId, DateTime ExpiresAt);
 
-    public void MoveForegroundRelative(int delta)
+    public void MoveForegroundRelative(int delta) =>
+        MoveWindowRelative(NativeWindows.ForegroundWindow, delta);
+
+    /// <summary>Moves an owner's complete group by desktop order, optionally following it in one visibility update.</summary>
+    internal bool MoveWindowRelative(long handle, int delta)
     {
-        long handle = NativeWindows.ForegroundWindow;
-        if (handle == 0) return;
-        var assignment = Catalog.GetAssignment(handle);
-        if (assignment is null) return;
-        var display = Catalog.Snapshot().First(d => d.Id == assignment.DisplayId);
+        if (delta == 0 || !_windows.TryGetValue(handle, out var selected)) return false;
+        long root = OwnerGroup(selected);
+        var assignment = Catalog.GetAssignment(root);
+        if (assignment is null) return false;
+        var display = Catalog.Snapshot().FirstOrDefault(d => d.Id == assignment.DisplayId);
+        if (display is null || display.Desktops.Count <= 1) return false;
         int index = display.Desktops.ToList().FindIndex(d => d.Id == assignment.DesktopId);
-        int next = ((index + delta) % display.Desktops.Count + display.Desktops.Count) % display.Desktops.Count;
-        MoveWindow(handle, display.Desktops[next].Id);
+        if (index < 0) return false;
+        long requested = (long)index + delta;
+        int next = (int)((requested % display.Desktops.Count + display.Desktops.Count) % display.Desktops.Count);
+        if (next == index || _windows.Values.Any(w =>
+            (w.Handle == root || w.RootOwner == root) && _displayMoves.ContainsKey(w.Handle))) return false;
+        return MoveWindowToDisplayCore(handle, assignment.DisplayId, display.Desktops[next].Id, FollowMovedWindow);
     }
 
     public void ActivateWindow(long handle)

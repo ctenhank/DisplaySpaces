@@ -1,6 +1,7 @@
 [CmdletBinding()]
 param(
-    [switch]$Publish
+    [switch]$Publish,
+    [switch]$Install
 )
 
 $ErrorActionPreference = 'Stop'
@@ -17,7 +18,7 @@ try {
         throw "Solution build failed with exit code $LASTEXITCODE."
     }
 
-    if ($Publish) {
+    if ($Publish -or $Install) {
         $publishDirectory = Join-Path $repositoryRoot 'artifacts\publish'
         & dotnet publish $appProject --self-contained true -r win-x64 -c Release -o $publishDirectory
         if ($LASTEXITCODE -ne 0) {
@@ -25,6 +26,9 @@ try {
         }
         & (Join-Path $PSScriptRoot 'copy-runtime-notices.ps1') -PublishDirectory $publishDirectory
         Write-Host "Standalone application: $(Join-Path $publishDirectory 'BetterVirtualDesktop.exe')"
+        if ($Install) {
+            & (Join-Path $PSScriptRoot 'install.ps1') -PublishDirectory $publishDirectory
+        }
     }
 }
 finally {

@@ -37,12 +37,19 @@ internal sealed class DesktopApplicationContext : ApplicationContext
             RecoveryJournal.RecoverOrphans();
             _journal = new RecoveryJournal();
             _guardian = ProcessLauncher.StartGuardian(_journal.FilePath);
-            _controller = new DesktopController(_journal, canHide: () => !_guardian.HasExited);
+            _controller = new DesktopController(_journal, canHide: () => !_guardian.HasExited)
+            {
+                WrapDesktopSwitching = DesktopNavigationPreferences.Load(),
+                SwitchingMode = DisplaySwitchingPreferences.Load(),
+                FollowMovedWindow = WindowMovePreferences.Load()
+            };
             _overview = new OverviewForm(_controller, () => _shortcuts);
             _overview.ShortcutSettingsRequested += OpenShortcutSettings;
             _overlays = new OverlayCoordinator(_controller, _dispatcher);
             _overlays.ShortcutSettingsRequested += OpenShortcutSettings;
-            _desktopNames = new DesktopNameToastCoordinator(_controller, _dispatcher);
+            _desktopNames = new DesktopNameToastCoordinator(_controller, _dispatcher, DesktopNamePreferences.Load());
+            _overlays.VisibilityChanged += UpdateDesktopNameVisibility;
+            _overview.VisibleChanged += (_, _) => UpdateDesktopNameVisibility();
             _taskbarDesktops = new TaskbarDesktopCoordinator(_controller, _dispatcher,
                 () => _stopping || _shortcutSettings is not null);
             _taskbarDesktops.DesktopFollowed += () =>
@@ -164,23 +171,26 @@ internal sealed class DesktopApplicationContext : ApplicationContext
         });
         menu.Items.Add(startup);
         menu.Opening += (_, _) => startup.RefreshStatus();
-        var namePosition = new ToolStripMenuItem(UiText.Get("Tray.NamePosition"));
-        var topRight = new ToolStripMenuItem(UiText.Get("Tray.TopRight")) { Checked = _desktopNames.Corner == DesktopToastCorner.TopRight };
-        var topLeft = new ToolStripMenuItem(UiText.Get("Tray.TopLeft")) { Checked = _desktopNames.Corner == DesktopToastCorner.TopLeft };
-        topRight.Click += (_, _) =>
+        menu.Items.Add(new DisplaySwitchingMenuItem(_controller, mode => DisplaySwitchingPreferences.Save(mode), error =>
         {
-            _desktopNames.Corner = DesktopToastCorner.TopRight;
-            topRight.Checked = true;
-            topLeft.Checked = false;
-        };
-        topLeft.Click += (_, _) =>
+            AppLog.Write(error);
+            _tray.ShowBalloonTip(6000, "BetterVirtualDesktop", UiText.Get("DisplaySwitching.SaveFailed", error.Message), ToolTipIcon.Error);
+        }));
+        menu.Items.Add(new WrapDesktopSwitchingMenuItem(_controller, wrap => DesktopNavigationPreferences.Save(wrap), error =>
         {
-            _desktopNames.Corner = DesktopToastCorner.TopLeft;
-            topRight.Checked = false;
-            topLeft.Checked = true;
-        };
-        namePosition.DropDownItems.AddRange([topRight, topLeft]);
-        menu.Items.Add(namePosition);
+            AppLog.Write(error);
+            _tray.ShowBalloonTip(6000, "BetterVirtualDesktop", UiText.Get("Navigation.SaveFailed", error.Message), ToolTipIcon.Error);
+        }));
+        menu.Items.Add(new FollowMovedWindowMenuItem(_controller, follow => WindowMovePreferences.Save(follow), error =>
+        {
+            AppLog.Write(error);
+            _tray.ShowBalloonTip(6000, "BetterVirtualDesktop", UiText.Get("WindowMove.SaveFailed", error.Message), ToolTipIcon.Error);
+        }));
+        menu.Items.Add(new DesktopNameMenuItem(_desktopNames, settings => DesktopNamePreferences.Save(settings), error =>
+        {
+            AppLog.Write(error);
+            _tray.ShowBalloonTip(6000, "BetterVirtualDesktop", UiText.Get("DesktopName.SaveFailed", error.Message), ToolTipIcon.Error);
+        }));
         var languageMenu = new ToolStripMenuItem(UiText.Get("Tray.Language"));
         var system = new ToolStripMenuItem(UiText.Get("Tray.SystemLanguage")) { Checked = UiText.SelectedLanguageCode == "system" };
         system.Click += (_, _) => SelectLanguage("system");
@@ -213,6 +223,11 @@ internal sealed class DesktopApplicationContext : ApplicationContext
             AppLog.Write(error);
             MessageBox.Show(UiText.Get("LanguageSaveFailed", error.Message), "BetterVirtualDesktop", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
+    }
+
+    private void UpdateDesktopNameVisibility()
+    {
+        if (!_stopping) _desktopNames.Suspended = _overlays.Visible || _overview.Visible;
     }
 
     private void OnLanguageChanged()

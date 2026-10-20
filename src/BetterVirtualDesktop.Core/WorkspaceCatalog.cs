@@ -149,6 +149,27 @@ public sealed class WorkspaceCatalog
     }
 
     /// <summary>
+    /// Inserts an existing desktop at its final zero-based position. Its identity, name,
+    /// windows, and active selection are preserved; other displays are not reordered.
+    /// </summary>
+    public bool ReorderDesktop(string displayId, Guid desktopId, int targetIndex)
+    {
+        lock (_sync)
+        {
+            var display = GetDisplay(displayId);
+            var desktop = GetDesktop(display, desktopId);
+            if (targetIndex < 0 || targetIndex >= display.Desktops.Count)
+                throw new ArgumentOutOfRangeException(nameof(targetIndex));
+
+            var sourceIndex = display.Desktops.IndexOf(desktop);
+            if (sourceIndex == targetIndex) return false;
+            display.Desktops.RemoveAt(sourceIndex);
+            display.Desktops.Insert(targetIndex, desktop);
+            return true;
+        }
+    }
+
+    /// <summary>
     /// Removes a desktop and moves its windows to the preceding desktop, or the next
     /// desktop when removing the first. The last desktop cannot be removed.
     /// </summary>
@@ -175,28 +196,71 @@ public sealed class WorkspaceCatalog
         }
     }
 
-    public void SwitchToDesktop(string displayId, Guid desktopId)
+    /// <summary>
+    /// Selects a desktop on one display, or its ordinal position on every display.
+    /// Linked switching adds missing empty desktops without changing existing assignments.
+    /// </summary>
+    public void SwitchToDesktop(string displayId, Guid desktopId,
+        DisplaySwitchingMode mode = DisplaySwitchingMode.Independent)
     {
         lock (_sync)
         {
+            ValidateSwitchingMode(mode);
             var display = GetDisplay(displayId);
-            display.ActiveDesktopId = GetDesktop(display, desktopId).Id;
+            var desktop = GetDesktop(display, desktopId);
+            SwitchToIndex(display, display.Desktops.IndexOf(desktop), mode);
         }
     }
 
-    /// <summary>Switches by a signed offset, wrapping at both ends.</summary>
-    public void SwitchRelative(string displayId, int offset)
+    /// <summary>
+    /// Switches by a signed offset, optionally stopping at the first or last desktop.
+    /// Linked switching uses the source display's active position and the longest desktop list.
+    /// A request that leaves that position unchanged does not synchronize other displays.
+    /// </summary>
+    public void SwitchRelative(string displayId, int offset, bool wrapAround = true,
+        DisplaySwitchingMode mode = DisplaySwitchingMode.Independent)
     {
         lock (_sync)
         {
+            ValidateSwitchingMode(mode);
             var display = GetDisplay(displayId);
             var index = display.Desktops.FindIndex(d => d.Id == display.ActiveDesktopId);
-            var count = display.Desktops.Count;
-            var target = (int)(((long)index + offset) % count);
-            if (target < 0)
-                target += count;
-            display.ActiveDesktopId = display.Desktops[target].Id;
+            var count = mode == DisplaySwitchingMode.Linked
+                ? _displays.Values.Max(d => d.Desktops.Count)
+                : display.Desktops.Count;
+            long requested = (long)index + offset;
+            var target = wrapAround
+                ? (int)((requested % count + count) % count)
+                : (int)Math.Clamp(requested, 0L, count - 1L);
+            if (target == index) return;
+            SwitchToIndex(display, target, mode);
         }
+    }
+
+    // Called only while holding _sync, after validating the complete request.
+    private void SwitchToIndex(DisplayState source, int index, DisplaySwitchingMode mode)
+    {
+        if (mode == DisplaySwitchingMode.Independent)
+        {
+            source.ActiveDesktopId = source.Desktops[index].Id;
+            return;
+        }
+
+        foreach (var display in _displays.Values)
+        {
+            while (display.Desktops.Count <= index)
+            {
+                int number = display.NextDefaultNumber();
+                display.Desktops.Add(new DesktopState(Guid.NewGuid(), $"Desktop {number}", number));
+            }
+            display.ActiveDesktopId = display.Desktops[index].Id;
+        }
+    }
+
+    private static void ValidateSwitchingMode(DisplaySwitchingMode mode)
+    {
+        if (!Enum.IsDefined(mode))
+            throw new ArgumentOutOfRangeException(nameof(mode));
     }
 
     /// <summary>Moves a tracked window to a desktop belonging to its current display.</summary>

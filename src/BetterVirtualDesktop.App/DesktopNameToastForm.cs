@@ -28,6 +28,7 @@ internal sealed class DesktopNameToastForm : Form
     private static readonly Color Muted = Color.FromArgb(179, 190, 210);
     private Font? _nameFont;
     private Font? _captionFont;
+    private Font? _boundaryFont;
     private int _fontDpi;
     private string _fontFamily = "";
     private string _caption = "";
@@ -46,6 +47,7 @@ internal sealed class DesktopNameToastForm : Form
 
     public string DesktopName { get; private set; } = "";
     public string DisplayId { get; private set; } = "";
+    public string BoundaryText { get; private set; } = "";
 
     protected override bool ShowWithoutActivation => true;
 
@@ -83,9 +85,13 @@ internal sealed class DesktopNameToastForm : Form
         DisplayId = screen.DeviceName;
         DesktopName = desktopName;
         _caption = UiText.Get("Toast.Caption", displayName, position, count);
+        BoundaryText = count == 1 ? UiText.Get("Toast.OnlyDesktop")
+            : position == 1 ? UiText.Get("Toast.FirstDesktop")
+            : position == count ? UiText.Get("Toast.LastDesktop") : "";
         _contentVersion++;
         Text = $"{desktopName} · BetterVirtualDesktop";
         AccessibleName = UiText.Get("Toast.Accessible", desktopName, displayName, count, position);
+        if (BoundaryText.Length > 0) AccessibleName += " · " + BoundaryText;
         Reposition(screen, corner);
         // Set opacity only after creating the HWND on its destination display.
         Opacity = 0.96;
@@ -132,8 +138,10 @@ internal sealed class DesktopNameToastForm : Form
                 new Size(int.MaxValue, S(36)), measurementFlags).Width;
             int captionWidth = TextRenderer.MeasureText(graphics, _caption, _captionFont!,
                 new Size(int.MaxValue, S(24)), measurementFlags).Width;
-            int width = Math.Clamp(Math.Max(nameWidth, captionWidth) + S(56), S(300), S(420));
-            Place(CornerBounds(area, width, S(90), S(20), corner));
+            int boundaryWidth = TextRenderer.MeasureText(graphics, BoundaryText, _boundaryFont!,
+                new Size(int.MaxValue, S(24)), measurementFlags).Width;
+            int width = Math.Clamp(Math.Max(Math.Max(nameWidth, captionWidth), boundaryWidth) + S(56), S(300), S(420));
+            Place(CornerBounds(area, width, S(BoundaryText.Length > 0 ? 112 : 90), S(20), corner));
             _positionedContentVersion = _contentVersion;
             _lastDisplayId = screen.DeviceName;
             _lastArea = area;
@@ -176,12 +184,15 @@ internal sealed class DesktopNameToastForm : Form
 
     private void EnsureFonts()
     {
-        if (_fontDpi == DeviceDpi && _fontFamily == UiText.FontFamily && _nameFont is not null && _captionFont is not null) return;
+        if (_fontDpi == DeviceDpi && _fontFamily == UiText.FontFamily
+            && _nameFont is not null && _captionFont is not null && _boundaryFont is not null) return;
         _nameFont?.Dispose();
         _captionFont?.Dispose();
+        _boundaryFont?.Dispose();
         _fontFamily = UiText.FontFamily;
         _nameFont = new Font(_fontFamily, 20f * DeviceDpi / 96f, FontStyle.Bold, GraphicsUnit.Pixel);
         _captionFont = new Font(_fontFamily, 12f * DeviceDpi / 96f, FontStyle.Regular, GraphicsUnit.Pixel);
+        _boundaryFont = new Font(_fontFamily, 14f * DeviceDpi / 96f, FontStyle.Bold, GraphicsUnit.Pixel);
         _fontDpi = DeviceDpi;
     }
 
@@ -197,7 +208,7 @@ internal sealed class DesktopNameToastForm : Form
             e.Graphics.DrawPath(border, outline);
         }
         using var accent = new SolidBrush(Accent);
-        using var marker = RoundedRectangle(new RectangleF(S(18), S(23), S(4), S(43)), S(2));
+        using var marker = RoundedRectangle(new RectangleF(S(18), S(23), S(4), S(BoundaryText.Length > 0 ? 66 : 43)), S(2));
         e.Graphics.FillPath(accent, marker);
         const TextFormatFlags flags = TextFormatFlags.EndEllipsis | TextFormatFlags.SingleLine |
             TextFormatFlags.VerticalCenter | TextFormatFlags.NoPrefix | TextFormatFlags.NoPadding;
@@ -206,6 +217,9 @@ internal sealed class DesktopNameToastForm : Form
             new Rectangle(S(34), S(15), textWidth, S(34)), ForeColor, flags);
         TextRenderer.DrawText(e.Graphics, _caption, _captionFont!,
             new Rectangle(S(34), S(50), textWidth, S(24)), Muted, flags);
+        if (BoundaryText.Length > 0)
+            TextRenderer.DrawText(e.Graphics, BoundaryText, _boundaryFont!,
+                new Rectangle(S(34), S(77), textWidth, S(22)), Accent, flags);
     }
 
     protected override void OnSizeChanged(EventArgs e)
@@ -266,6 +280,7 @@ internal sealed class DesktopNameToastForm : Form
         {
             _nameFont?.Dispose();
             _captionFont?.Dispose();
+            _boundaryFont?.Dispose();
         }
         base.Dispose(disposing);
     }

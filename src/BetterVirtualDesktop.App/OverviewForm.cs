@@ -196,6 +196,21 @@ internal sealed class OverviewForm : Form
             UiText.Get(active ? "Overview.Active" : "Overview.Switch"));
         var menu = new ContextMenuStrip { Font = Font };
         menu.Items.Add(UiText.Get("Rename"), null, (_, _) => Rename(display.Id, desktop));
+        menu.Items.Add(new ToolStripSeparator());
+        var moveLeft = menu.Items.Add(UiText.Get("Reorder.MoveLeft"), null, (_, _) => ReorderDesktop(display.Id, desktop.Id, -1));
+        moveLeft.Name = "Reorder.MoveLeft";
+        var moveRight = menu.Items.Add(UiText.Get("Reorder.MoveRight"), null, (_, _) => ReorderDesktop(display.Id, desktop.Id, 1));
+        moveRight.Name = "Reorder.MoveRight";
+        void UpdateReorderActions()
+        {
+            var current = _controller.Catalog.Snapshot().FirstOrDefault(d => d.Id == display.Id);
+            int index = current?.Desktops.ToList().FindIndex(d => d.Id == desktop.Id) ?? -1;
+            moveLeft.Enabled = index > 0;
+            moveRight.Enabled = index >= 0 && index < current!.Desktops.Count - 1;
+        }
+        UpdateReorderActions();
+        menu.Opening += (_, _) => UpdateReorderActions();
+        menu.Items.Add(new ToolStripSeparator());
         var remove = menu.Items.Add(UiText.Get("RemoveDesktop"), null,
             (_, _) => _controller.RemoveDesktop(display.Id, desktop.Id));
         remove.Enabled = display.Desktops.Count > 1;
@@ -262,6 +277,13 @@ internal sealed class OverviewForm : Form
             row.SetBounds(28, top, Math.Max(600, _body.ClientSize.Width - 74), row.Height);
             top += row.Height + 18;
         }
+    }
+
+    private void ReorderDesktop(string displayId, Guid desktopId, int offset)
+    {
+        var display = _controller.Catalog.Snapshot().FirstOrDefault(d => d.Id == displayId);
+        int index = display?.Desktops.ToList().FindIndex(d => d.Id == desktopId) ?? -1;
+        if (index >= 0) _controller.ReorderDesktop(displayId, desktopId, index + offset);
     }
 
     private void Rename(string displayId, DesktopSnapshot desktop)

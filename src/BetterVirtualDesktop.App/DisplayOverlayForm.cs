@@ -54,7 +54,13 @@ internal sealed class DisplayOverlayForm : Form
     private bool _layoutDirty = true;
     private Point _mouseDown;
     private long? _pressedWindow;
+    private Guid? _pressedDesktop;
     private readonly Guid _dragSession;
+    private readonly Guid _desktopDragSession = Guid.NewGuid();
+    private DesktopDrag? _desktopDrag;
+    private bool _draggingDesktop;
+    private int? _reorderTargetIndex;
+    private Rectangle _reorderIndicator;
     private Guid? _creationDesktop;
     private long _creationStarted;
     private bool _creationMovedWindow;
@@ -63,6 +69,7 @@ internal sealed class DisplayOverlayForm : Form
     private sealed record HitTarget(string Id, Rectangle Bounds, Action Invoke, Action? Context, string Hint,
         Guid? DesktopId = null, long? WindowHandle = null, bool CreatesDesktop = false);
     private sealed record WindowDrag(long Handle);
+    private sealed record DesktopDrag(Guid DesktopId, Guid Token, IReadOnlyList<Guid> Order);
 
     public string DisplayId => _display.Id;
     public Guid SelectedDesktopId => _selected;
@@ -72,6 +79,7 @@ internal sealed class DisplayOverlayForm : Form
     public Rectangle DesktopRailBounds => _rail;
     internal Rectangle DesktopCardBounds(Guid desktop) => _targets.First(t => t.DesktopId == desktop).Bounds;
     internal Rectangle NewDesktopCardBounds => _targets.First(t => t.CreatesDesktop).Bounds;
+    internal Rectangle ReorderInsertionBounds => _reorderIndicator;
     internal string? HoveredTargetId => _hoveredTargetId;
     internal string? PressedTargetId => _pressedButton == MouseButtons.Left && _pressedTargetId == _hoveredTargetId ? _pressedTargetId : null;
     internal bool HasCreationFeedback => _creationDesktop.HasValue && Stopwatch.GetElapsedTime(_creationStarted) < CreationFeedbackDuration;
@@ -91,6 +99,7 @@ internal sealed class DisplayOverlayForm : Form
     public event Action<string>? AddRequested;
     public event Action<string, Guid>? RemoveRequested;
     public event Action<string, Guid, string>? RenameRequested;
+    public event Action<string, Guid, int>? ReorderRequested;
     public event Action<long, string, Guid>? MoveToDisplayRequested;
     public event Action<long, string>? MoveToNewDesktopRequested;
     protected override bool ShowWithoutActivation => true;
@@ -133,6 +142,12 @@ internal sealed class DisplayOverlayForm : Form
         if (Bounds != screen.Bounds) Bounds = screen.Bounds;
         if (_signature == signature) return;
         _signature = signature;
+        if (_display.Id != display.Id || !_display.Desktops.Select(d => d.Id).SequenceEqual(display.Desktops.Select(d => d.Id)))
+        {
+            ClearPress();
+            ClearDesktopDrag();
+            _menu?.Close();
+        }
         if (_display.ActiveDesktopId != display.ActiveDesktopId || !display.Desktops.Any(d => d.Id == _selected))
         { _selected = display.ActiveDesktopId; _windowOffset = 0; }
         _display = display;
@@ -182,7 +197,7 @@ internal sealed class DisplayOverlayForm : Form
         else _live?.Clear();
         DrawDesktopRail(g);
         if (HasCreationFeedback) DrawCreationFeedback(g);
-        string help = _status.Length > 0 ? _status : UiText.Get("OverlayHelp");
+        string help = _desktopDrag is not null ? UiText.Get("Reorder.Hint") : _status.Length > 0 ? _status : UiText.Get("OverlayHelp");
         if (selected.WindowIds.Count > WindowSlots) help += UiText.Get("MoreWindows", _windowOffset + 1, Math.Min(_windowOffset + WindowSlots, selected.WindowIds.Count));
         if (!compactFeedback)
             DrawText(g, help, _smallFont, Muted, new Rectangle(margin, _rail.Top - S(35), ClientSize.Width - margin * 2, S(26)), true);
@@ -416,6 +431,15 @@ internal sealed class DisplayOverlayForm : Form
         DrawText(g, _dropNewDesktop ? UiText.Get("DropToMove") : "+", _titleFont, _dropNewDesktop || pressed ? Accent : Color.White, plus, true);
         _targets.Add(new(addKey, add, () => AddRequested?.Invoke(DisplayId), null,
             UiText.Get("NewDesktopHint"), CreatesDesktop: true));
+        if (!_reorderIndicator.IsEmpty)
+        {
+            using var insertion = new Pen(Accent, S(4)) { StartCap = LineCap.Round, EndCap = LineCap.Round };
+            int x = _reorderIndicator.Left + _reorderIndicator.Width / 2;
+            g.DrawLine(insertion, x, _reorderIndicator.Top, x, _reorderIndicator.Bottom);
+            using var marker = new SolidBrush(Accent);
+            g.FillEllipse(marker, x - S(4), _reorderIndicator.Top - S(4), S(8), S(8));
+            g.FillEllipse(marker, x - S(4), _reorderIndicator.Bottom - S(4), S(8), S(8));
+        }
     }
 
     private void DrawDesktop(Graphics g, DesktopSnapshot desktop, Rectangle bounds)
@@ -457,6 +481,11 @@ internal sealed class DisplayOverlayForm : Form
             float pulse = (float)(0.5 + 0.5 * Math.Sin(elapsed * Math.PI * 3));
             using var ring = new Pen(Color.FromArgb(150 + (int)(105 * pulse), Accent), S(3));
             g.DrawRectangle(ring, bounds.Left + S(2), bounds.Top + S(2), bounds.Width - S(4), bounds.Height - S(4));
+        }
+        if (_desktopDrag?.DesktopId == desktop.Id)
+        {
+            using var dragOutline = new Pen(Accent, S(2)) { DashStyle = DashStyle.Dash };
+            g.DrawRectangle(dragOutline, bounds.Left + S(2), bounds.Top + S(2), bounds.Width - S(4), bounds.Height - S(4));
         }
     }
 
@@ -568,6 +597,7 @@ internal sealed class DisplayOverlayForm : Form
         _pressedBackground = false;
         _pressedButton = MouseButtons.None;
         _pressedWindow = null;
+        _pressedDesktop = null;
         _releasingCapture = true;
         try { if (Capture) Capture = false; }
         finally { _releasingCapture = false; }
@@ -625,7 +655,12 @@ internal sealed class DisplayOverlayForm : Form
         MoveToNewDesktopRequested?.Invoke(handle, displayId);
     }
     public void ShowStatus(string message) { _status = message; Invalidate(); }
-    public void CancelOverlay() => DismissRequested?.Invoke();
+    public void CancelOverlay()
+    {
+        ClearPress();
+        ClearDesktopDrag();
+        DismissRequested?.Invoke();
+    }
     public void RequestKeyboardFocus() => KeyboardFocusRequested?.Invoke();
     protected override void OnMouseEnter(EventArgs e) { base.OnMouseEnter(e); RequestKeyboardFocus(); }
 
@@ -657,6 +692,8 @@ internal sealed class DisplayOverlayForm : Form
         _pressedButton = e.Button;
         _pressedBackground = hit is null && _pointerInside && !_rail.Contains(e.Location);
         _pressedWindow = e.Button == MouseButtons.Left ? hit?.WindowHandle : null;
+        _pressedDesktop = e.Button == MouseButtons.Left && hit?.DesktopId is Guid desktop && hit.Id == $"desktop:{desktop}"
+            ? desktop : null;
         if (Visible) Capture = true;
         Invalidate();
     }
@@ -666,17 +703,22 @@ internal sealed class DisplayOverlayForm : Form
         base.OnMouseMove(e);
         _pointerInside = ClientRectangle.Contains(e.Location);
         _pointerLocation = e.Location;
-        if (_pressedWindow is long handle && e.Button == MouseButtons.Left && !_dragging &&
+        if ((_pressedWindow.HasValue || _pressedDesktop.HasValue) && e.Button == MouseButtons.Left && !_dragging &&
             (Math.Abs(e.X - _mouseDown.X) > SystemInformation.DragSize.Width / 2 || Math.Abs(e.Y - _mouseDown.Y) > SystemInformation.DragSize.Height / 2))
         {
+            IDataObject data = _pressedDesktop is Guid desktop ? CreateDesktopDragData(desktop) : CreateDragData(_pressedWindow!.Value);
             _suppressMouseUp = true;
             _dragging = true;
+            _draggingDesktop = _desktopDrag is not null;
             ClearPress();
             SetHovered(null);
-            try { DoDragDrop(CreateDragData(handle), DragDropEffects.Move); }
+            try { DoDragDrop(data, DragDropEffects.Move); }
             finally
             {
                 _dragging = false;
+                _draggingDesktop = false;
+                ClearDesktopDrag();
+                ClearPress();
                 _dropDesktop = null;
                 _dropNewDesktop = false;
                 if (!IsDisposed)
@@ -759,6 +801,38 @@ internal sealed class DisplayOverlayForm : Form
         // A per-opening nonce restricts drops to this app's current overlay session.
         return new DataObject(DataFormats.UnicodeText, $"BetterVirtualDesktop.Window/{_dragSession:D}/{handle}");
     }
+    internal IDataObject CreateDesktopDragData(Guid desktopId)
+    {
+        if (!_display.Desktops.Any(d => d.Id == desktopId)) throw new ArgumentException("The desktop must belong to this display.", nameof(desktopId));
+        _desktopDrag = new(desktopId, Guid.NewGuid(), _display.Desktops.Select(d => d.Id).ToArray());
+        _reorderTargetIndex = null;
+        _reorderIndicator = Rectangle.Empty;
+        return new DataObject(DataFormats.UnicodeText, DesktopDragText(_desktopDrag));
+    }
+    private string DesktopDragText(DesktopDrag drag) => $"BetterVirtualDesktop.Desktop/{_desktopDragSession:D}/{drag.Token:D}/{drag.DesktopId:D}";
+    private DesktopDrag? ReadDesktopDrag(IDataObject? data) =>
+        _desktopDrag is { } drag && drag.Order.SequenceEqual(_display.Desktops.Select(d => d.Id))
+        && data?.GetData(DataFormats.UnicodeText, false) is string text
+        && string.Equals(text, DesktopDragText(drag), StringComparison.Ordinal) ? drag : null;
+
+    private void ClearDesktopDrag()
+    {
+        _desktopDrag = null;
+        _reorderTargetIndex = null;
+        _reorderIndicator = Rectangle.Empty;
+        if (!IsDisposed && !Disposing) Invalidate();
+    }
+
+    protected override void OnQueryContinueDrag(QueryContinueDragEventArgs e)
+    {
+        base.OnQueryContinueDrag(e);
+        if (e.EscapePressed || (_draggingDesktop && _desktopDrag is null)) e.Action = DragAction.Cancel;
+        if (e.Action == DragAction.Cancel)
+        {
+            ClearPress();
+            ClearDesktopDrag();
+        }
+    }
     private WindowDrag? ReadDrag(IDataObject? data)
     {
         string prefix = $"BetterVirtualDesktop.Window/{_dragSession:D}/";
@@ -768,13 +842,23 @@ internal sealed class DisplayOverlayForm : Form
     protected override void OnDragEnter(DragEventArgs e)
     {
         base.OnDragEnter(e);
-        if (ReadDrag(e.Data) is not null) PreservePreviewAfterMove();
+        if (ReadDrag(e.Data) is not null || ReadDesktopDrag(e.Data) is not null) PreservePreviewAfterMove();
         UpdateDrag(e);
     }
     protected override void OnDragOver(DragEventArgs e) { base.OnDragOver(e); UpdateDrag(e); }
     private void UpdateDrag(DragEventArgs e)
     {
         var point = PointToClient(new Point(e.X, e.Y));
+        var reorder = ReadDesktopDrag(e.Data);
+        if (reorder is not null)
+        {
+            UpdateReorderDrag(e, point, reorder);
+            return;
+        }
+        bool hadInsertion = !_reorderIndicator.IsEmpty;
+        _reorderTargetIndex = null;
+        _reorderIndicator = Rectangle.Empty;
+        if (hadInsertion) Invalidate();
         var hit = HitTest(point);
         var target = hit?.DesktopId;
         bool create = hit?.CreatesDesktop == true;
@@ -788,11 +872,56 @@ internal sealed class DisplayOverlayForm : Form
             Invalidate();
         }
     }
-    protected override void OnDragLeave(EventArgs e) { base.OnDragLeave(e); _dropDesktop = null; _dropNewDesktop = false; Invalidate(); }
+    private void UpdateReorderDrag(DragEventArgs e, Point point, DesktopDrag drag)
+    {
+        // Use full card bounds, including its menu area and the small gap between cards.
+        // The source is removed before insertion, so the emitted index is the final position.
+        _ = HitTest(point);
+        _dropDesktop = null;
+        _dropNewDesktop = false;
+        _reorderTargetIndex = null;
+        _reorderIndicator = Rectangle.Empty;
+        foreach (var target in _targets.Where(t => t.DesktopId is Guid id && t.Id == $"desktop:{id}"))
+        {
+            var area = target.Bounds;
+            area.Inflate(S(6), 0);
+            if (!area.Contains(point)) continue;
+            int sourceIndex = _display.Desktops.ToList().FindIndex(d => d.Id == drag.DesktopId);
+            int hoveredIndex = _display.Desktops.ToList().FindIndex(d => d.Id == target.DesktopId);
+            bool after = point.X >= target.Bounds.Left + target.Bounds.Width / 2;
+            int insertion = hoveredIndex + (after ? 1 : 0);
+            int finalIndex = insertion > sourceIndex ? insertion - 1 : insertion;
+            if (sourceIndex < 0 || finalIndex == sourceIndex) break;
+            _reorderTargetIndex = finalIndex;
+            int x = after ? target.Bounds.Right + S(6) : target.Bounds.Left - S(6);
+            _reorderIndicator = new Rectangle(x - S(2), target.Bounds.Top + S(6), S(4), Math.Max(1, target.Bounds.Height - S(12)));
+            break;
+        }
+        e.Effect = _reorderTargetIndex.HasValue && (e.AllowedEffect & DragDropEffects.Move) != 0 ? DragDropEffects.Move : DragDropEffects.None;
+        if (e.Effect == DragDropEffects.None) { _reorderTargetIndex = null; _reorderIndicator = Rectangle.Empty; }
+        Invalidate();
+    }
+    protected override void OnDragLeave(EventArgs e)
+    {
+        base.OnDragLeave(e);
+        _dropDesktop = null;
+        _dropNewDesktop = false;
+        _reorderTargetIndex = null;
+        _reorderIndicator = Rectangle.Empty;
+        Invalidate();
+    }
     protected override void OnDragDrop(DragEventArgs e)
     {
         base.OnDragDrop(e);
         UpdateDrag(e);
+        if (ReadDesktopDrag(e.Data) is { } desktopDrag)
+        {
+            int? index = _reorderTargetIndex;
+            ClearDesktopDrag();
+            ClearPress();
+            if (index.HasValue && e.Effect == DragDropEffects.Move) RequestReorderDesktop(desktopDrag.DesktopId, index.Value);
+            return;
+        }
         var payload = ReadDrag(e.Data);
         if (payload is not null)
         {
@@ -801,17 +930,48 @@ internal sealed class DisplayOverlayForm : Form
         }
         _dropDesktop = null;
         _dropNewDesktop = false;
+        ClearDesktopDrag();
         Invalidate();
     }
 
     private void DesktopMenu(DesktopSnapshot desktop)
     {
         _menu?.Dispose();
-        _menu = new ContextMenuStrip();
-        _menu.Items.Add(UiText.Get("Rename"), null, (_, _) => Rename(desktop));
-        var remove = _menu.Items.Add(UiText.Get("RemoveDesktop"), null, (_, _) => RemoveRequested?.Invoke(DisplayId, desktop.Id));
-        remove.Enabled = _display.Desktops.Count > 1;
+        _menu = BuildDesktopMenu(desktop.Id);
         _menu.Show(Cursor.Position);
+    }
+
+    internal ContextMenuStrip BuildDesktopMenu(Guid desktopId)
+    {
+        var menu = new ContextMenuStrip { Font = Font };
+        var desktop = _display.Desktops.FirstOrDefault(d => d.Id == desktopId);
+        if (desktop is null) return menu;
+        int index = _display.Desktops.ToList().FindIndex(d => d.Id == desktopId);
+        menu.Items.Add(UiText.Get("Rename"), null, (_, _) => Rename(desktop));
+        var left = menu.Items.Add(UiText.Get("Reorder.MoveLeft"), null, (_, _) => RequestReorderRelative(desktop.Id, -1));
+        left.Name = "Reorder.MoveLeft";
+        left.Enabled = index > 0;
+        var right = menu.Items.Add(UiText.Get("Reorder.MoveRight"), null, (_, _) => RequestReorderRelative(desktop.Id, 1));
+        right.Name = "Reorder.MoveRight";
+        right.Enabled = index < _display.Desktops.Count - 1;
+        menu.Items.Add(new ToolStripSeparator());
+        var remove = menu.Items.Add(UiText.Get("RemoveDesktop"), null, (_, _) => RemoveRequested?.Invoke(DisplayId, desktop.Id));
+        remove.Enabled = _display.Desktops.Count > 1;
+        return menu;
+    }
+
+    private void RequestReorderRelative(Guid desktopId, int delta)
+    {
+        int index = _display.Desktops.ToList().FindIndex(d => d.Id == desktopId);
+        if (index >= 0) RequestReorderDesktop(desktopId, index + delta);
+    }
+
+    internal void RequestReorderDesktop(Guid desktopId, int targetIndex)
+    {
+        int sourceIndex = _display.Desktops.ToList().FindIndex(d => d.Id == desktopId);
+        if (sourceIndex < 0 || targetIndex < 0 || targetIndex >= _display.Desktops.Count || targetIndex == sourceIndex) return;
+        PreservePreviewAfterMove();
+        ReorderRequested?.Invoke(DisplayId, desktopId, targetIndex);
     }
 
     private void WindowMenu(long handle, Guid current)
@@ -865,10 +1025,10 @@ internal sealed class DisplayOverlayForm : Form
         finally { UiText.Changed -= UpdateLanguage; dialogFont.Dispose(); }
     }
 
-    public void Shutdown() { _live?.Clear(); _closing = true; Close(); }
+    public void Shutdown() { ClearPress(); ClearDesktopDrag(); _live?.Clear(); _closing = true; Close(); }
     protected override void Dispose(bool disposing)
     {
-        if (disposing) { _feedbackTimer.Dispose(); _live?.Dispose(); _menu?.Dispose(); _tips.Dispose(); _titleFont.Dispose(); _smallFont.Dispose(); _headerFont.Dispose(); _messageFont.Dispose(); }
+        if (disposing) { ClearDesktopDrag(); _feedbackTimer.Dispose(); _live?.Dispose(); _menu?.Dispose(); _tips.Dispose(); _titleFont.Dispose(); _smallFont.Dispose(); _headerFont.Dispose(); _messageFont.Dispose(); }
         base.Dispose(disposing);
     }
 }

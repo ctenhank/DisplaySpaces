@@ -39,7 +39,11 @@ internal static class UiTextResources
         Add("WindowHint", "{0} · Click to open · Drag / right-click to move to another desktop or display", "{0} · 클릭: 열기 · 드래그 / 우클릭: 다른 데스크톱·디스플레이로 이동", "{0} · 单击打开 · 拖动或右键单击，移至其他桌面或显示器", "{0} · 按一下開啟 · 拖曳或按右鍵，移至其他桌面或顯示器", "{0} · クリックで開く · ドラッグ / 右クリックで別のデスクトップやディスプレイへ移動");
         Add("DropToMove", "Drop to move", "놓아서 이동", "松开以移动", "放開以移動", "ドロップして移動");
         Add("NewDesktopHint", "Click to create a desktop · Drop a window to create a desktop and move it there", "클릭: 새 데스크톱 · 창을 끌어 놓기: 새 데스크톱을 만들고 창 이동", "单击新建桌面 · 拖入窗口以新建桌面并移入", "按一下新增桌面 · 拖入視窗以新增桌面並移入", "クリックで新規作成 · ウィンドウをドロップすると新しいデスクトップを作成して移動");
-        Add("DesktopHint", "{0} · {1} windows · Click to switch · Right-click to rename / delete · Drop a window to move", "{0} · {1}개 창 · 클릭: 전환 · 우클릭: 이름 / 삭제 · 창을 끌어 놓아 이동", "{0} · {1}个窗口 · 单击切换 · 右键单击重命名或删除 · 拖入窗口以移动", "{0} · {1}個視窗 · 按一下切換 · 按右鍵重新命名或刪除 · 拖入視窗以移動", "{0} · ウィンドウ{1}個 · クリックで切り替え · 右クリックで名前変更 / 削除 · ドロップで移動");
+        Add("DesktopHint", "{0} · {1} windows · Click to switch · Drag to reorder · Right-click for name / order / delete · Drop a window to move it here", "{0} · {1}개 창 · 클릭: 전환 · 드래그: 순서 변경 · 우클릭: 이름 / 순서 / 삭제 · 창을 끌어 놓아 이동", "{0} · {1}个窗口 · 单击切换 · 拖动调整顺序 · 右键：名称 / 顺序 / 删除 · 拖入窗口以移动", "{0} · {1}個視窗 · 按一下切換 · 拖曳調整順序 · 按右鍵：名稱 / 順序 / 刪除 · 拖入視窗以移動", "{0} · ウィンドウ{1}個 · クリックで切り替え · ドラッグで並べ替え · 右クリックで名前 / 順番 / 削除 · ウィンドウをドロップして移動");
+        Add("Reorder.MoveLeft", "Move left", "왼쪽으로 이동", "向左移动", "向左移動", "左へ移動");
+        Add("Reorder.MoveRight", "Move right", "오른쪽으로 이동", "向右移动", "向右移動", "右へ移動");
+        Add("Reorder.Hint", "Drag a desktop card to change its order · Names stay with desktops", "데스크톱 카드를 끌어 순서 변경 · 이름은 유지됩니다", "拖动桌面卡片调整顺序 · 名称保持不变", "拖曳桌面卡片調整順序 · 名稱保持不變", "デスクトップをドラッグして並べ替え · 名前は維持されます");
+        Add("Reorder.Succeeded", "Desktop order changed · Names and windows stay with their desktops", "데스크톱 순서를 바꿨습니다 · 이름과 창은 그대로 유지됩니다", "已调整桌面顺序 · 名称和窗口保留在原桌面", "已調整桌面順序 · 名稱與視窗保留在原桌面", "デスクトップの順番を変更しました · 名前とウィンドウはそのまま維持されます");
         Add("DesktopMenu", "Desktop menu", "데스크톱 메뉴", "桌面菜单", "桌面選單", "デスクトップメニュー");
         Add("Rename", "Rename", "이름 변경", "重命名", "重新命名", "名前を変更");
         Add("RemoveDesktop", "Delete desktop · Move windows to an adjacent desktop", "데스크톱 삭제 · 창은 인접 데스크톱으로 이동", "删除桌面 · 将窗口移至相邻桌面", "刪除桌面 · 將視窗移至相鄰桌面", "デスクトップを削除 · ウィンドウは隣のデスクトップへ移動");
@@ -65,6 +69,23 @@ internal static class UiTextResources
         Add("Tray.Management", "Manage desktops", "관리 창", "管理桌面", "管理桌面", "デスクトップの管理");
         Add("Tray.StartWithWindows", "Start with Windows", "Windows 시작 시 자동 실행", "随 Windows 启动", "隨 Windows 啟動", "Windows 起動時に自動実行");
         Add("Tray.NamePosition", "Desktop name position", "데스크톱 이름 표시 위치", "桌面名称显示位置", "桌面名稱顯示位置", "デスクトップ名の表示位置");
+        Add("Tray.NameDisplay", "Show desktop names", "데스크톱 이름 표시", "显示桌面名称", "顯示桌面名稱", "デスクトップ名の表示");
+        Add("Tray.DisplaySwitching", "Display switching mode", "디스플레이 전환 방식", "显示器切换模式", "顯示器切換模式", "ディスプレイの切り替え方式");
+        Add("Tray.SwitchingIndependent", "Independent", "개별 전환", "独立切换", "獨立切換", "個別に切り替え");
+        Add("Tray.SwitchingLinked", "Linked", "함께 전환", "联动切换", "連動切換", "連動して切り替え");
+        Add("Tray.SwitchingIndependentHint", "Switch only the display you select.", "선택한 디스플레이의 데스크톱만 전환합니다.", "仅切换所选显示器的桌面。", "僅切換所選顯示器的桌面。", "選択したディスプレイのデスクトップだけを切り替えます。");
+        Add("Tray.SwitchingLinkedHint", "Switch all displays to the same desktop position; create missing desktops as needed.", "모든 디스플레이를 같은 순서의 데스크톱으로 전환하며, 부족한 데스크톱은 자동 생성합니다.", "将所有显示器切换到相同序号的桌面，按需创建缺少的桌面。", "將所有顯示器切換到相同順序的桌面，視需要建立缺少的桌面。", "すべてのディスプレイを同じ順番のデスクトップに切り替え、足りないデスクトップを自動で作成します。");
+        Add("DisplaySwitching.SaveFailed", "Could not save the display switching mode: {0}", "디스플레이 전환 방식을 저장하지 못했습니다: {0}", "无法保存显示器切换模式：{0}", "無法儲存顯示器切換模式：{0}", "ディスプレイの切り替え方式を保存できませんでした：{0}");
+        Add("Tray.WrapDesktopSwitching", "Wrap desktop switching", "데스크톱 순환 전환", "循环切换桌面", "循環切換桌面", "デスクトップを循環して切り替える");
+        Add("Tray.FollowMovedWindow", "Follow window to its desktop", "창 이동 후 데스크톱 따라가기", "移动窗口后切换到目标桌面", "移動視窗後切換至目標桌面", "ウィンドウの移動先デスクトップに切り替える");
+        Add("Tray.FollowMovedWindowHint", "Switch to the destination when using the shortcuts to move a window to the previous or next desktop.", "이전·다음 데스크톱으로 창을 옮기는 단축키를 누르면 목적지 데스크톱으로 전환합니다.", "使用快捷键将窗口移到上一个或下一个桌面时，切换到目标桌面。", "使用快捷鍵將視窗移至上一個或下一個桌面時，切換至目標桌面。", "ショートカットでウィンドウを前後のデスクトップに移動すると、移動先に切り替えます。");
+        Add("WindowMove.SaveFailed", "Could not save window move settings: {0}", "창 이동 설정을 저장하지 못했습니다: {0}", "无法保存窗口移动设置：{0}", "無法儲存視窗移動設定：{0}", "ウィンドウの移動設定を保存できませんでした：{0}");
+        Add("Tray.WrapDesktopSwitchingHint", "When off, switching stops at the first and last desktops.", "끄면 첫 번째·마지막 데스크톱에서 전환이 멈춥니다.", "关闭后，在第一个和最后一个桌面停止切换。", "關閉後，在第一個與最後一個桌面停止切換。", "オフにすると、最初と最後のデスクトップで切り替えが止まります。");
+        Add("Navigation.SaveFailed", "Could not save desktop switching settings: {0}", "데스크톱 전환 설정을 저장하지 못했습니다: {0}", "无法保存桌面切换设置：{0}", "無法儲存桌面切換設定：{0}", "デスクトップの切り替え設定を保存できませんでした：{0}");
+        Add("Tray.NameOff", "Off", "표시 안 함", "不显示", "不顯示", "表示しない");
+        Add("Tray.NameOnSwitch", "When switching", "전환할 때만", "仅切换时", "僅切換時", "切り替え時のみ");
+        Add("Tray.NameAlways", "Always", "항상 표시", "始终显示", "一律顯示", "常に表示");
+        Add("DesktopName.SaveFailed", "Could not save desktop name settings: {0}", "데스크톱 이름 표시 설정을 저장하지 못했습니다: {0}", "无法保存桌面名称设置：{0}", "無法儲存桌面名稱設定：{0}", "デスクトップ名の表示設定を保存できませんでした：{0}");
         Add("Tray.TopRight", "Top right", "오른쪽 위", "右上角", "右上角", "右上");
         Add("Tray.TopLeft", "Top left", "왼쪽 위", "左上角", "左上角", "左上");
         Add("Tray.PauseResume", "Pause / Resume", "일시 정지 / 다시 시작", "暂停 / 恢复", "暫停 / 繼續", "一時停止 / 再開");
@@ -94,7 +115,7 @@ internal static class UiTextResources
         Add("Overview.Status", "{0} displays  ·  {1} windows  ·  Click to open  /  Right-click to move", "{0}개 디스플레이  ·  {1}개 창  ·  클릭: 열기  /  우클릭: 이동", "{0}台显示器  ·  {1}个窗口  ·  单击打开 / 右键单击移动", "{0}台顯示器  ·  {1}個視窗  ·  按一下開啟 / 按右鍵移動", "ディスプレイ{0}台  ·  ウィンドウ{1}個  ·  クリックで開く / 右クリックで移動");
         Add("Overview.Unmanageable", "  ·  {0} unavailable", "  ·  제어 불가 {0}개", "  ·  {0}个无法控制", "  ·  {0}個無法控制", "  ·  操作不可{0}個");
         Add("Overview.Add", "+ Add desktop", "+ 데스크톱 추가", "+ 添加桌面", "+ 新增桌面", "+ デスクトップを追加");
-        Add("Overview.DesktopHint", "{0} · Right-click to rename / delete", "{0} · 우클릭: 이름 변경 / 삭제", "{0} · 右键单击以重命名或删除", "{0} · 按右鍵重新命名或刪除", "{0} · 右クリックで名前変更 / 削除");
+        Add("Overview.DesktopHint", "{0} · Right-click for name / order / delete", "{0} · 우클릭: 이름 변경 / 순서 변경 / 삭제", "{0} · 右键：名称 / 顺序 / 删除", "{0} · 按右鍵：名稱 / 順序 / 刪除", "{0} · 右クリックで名前 / 順番 / 削除");
         Add("Overview.DesktopAccessible", "{0}, {1}, {2}", "{0}, {1}, {2}", "{0}，{1}，{2}", "{0}，{1}，{2}", "{0}、{1}、{2}");
         Add("Overview.Active", "Active desktop", "현재 데스크톱", "当前桌面", "目前桌面", "現在のデスクトップ");
         Add("Overview.Switch", "Switch", "전환", "切换", "切換", "切り替え");
@@ -104,6 +125,9 @@ internal static class UiTextResources
         Add("Overview.ClosedWindow", "Closed window", "종료된 창", "已关闭的窗口", "已關閉的視窗", "閉じたウィンドウ");
         Add("Toast.Accessible", "Active desktop: {0}, {1}, {3} of {2}", "현재 데스크톱: {0}, {1}, {2}개 중 {3}번째", "当前桌面：{0}，{1}，第{3}个，共{2}个", "目前桌面：{0}，{1}，第{3}個，共{2}個", "現在のデスクトップ：{0}、{1}、{2}個中{3}番目");
         Add("Toast.Caption", "{0}  ·  {1} / {2}", "{0}  ·  {1} / {2}", "{0}  ·  {1} / {2}", "{0}  ·  {1} / {2}", "{0}  ·  {1} / {2}");
+        Add("Toast.FirstDesktop", "First desktop", "첫 번째 데스크톱", "第一个桌面", "第一個桌面", "最初のデスクトップ");
+        Add("Toast.LastDesktop", "Last desktop", "마지막 데스크톱", "最后一个桌面", "最後一個桌面", "最後のデスクトップ");
+        Add("Toast.OnlyDesktop", "First and last desktop", "첫 번째이자 마지막 데스크톱", "第一个也是最后一个桌面", "第一個也是最後一個桌面", "最初かつ最後のデスクトップ");
 
         Add("Shortcuts.Title", "Keyboard shortcuts", "키보드 단축키", "键盘快捷键", "鍵盤快速鍵", "キーボードショートカット");
         Add("Shortcuts.Open", "Keyboard shortcuts…", "단축키 설정", "键盘快捷键…", "鍵盤快速鍵…", "キーボードショートカット…");

@@ -24,6 +24,7 @@ internal sealed class OverlayCoordinator : IDisposable
     public bool Visible => _visible;
     public IReadOnlyList<DisplayOverlayForm> Forms => _forms.Values.ToArray();
     public event Action? ShortcutSettingsRequested;
+    public event Action? VisibilityChanged;
 
     public OverlayCoordinator(DesktopController controller, Control dispatcher)
     {
@@ -56,6 +57,7 @@ internal sealed class OverlayCoordinator : IDisposable
         _generation++;
         _dragSession = Guid.NewGuid();
         _visible = true;
+        VisibilityChanged?.Invoke();
         UpdateContent();
         var screen = Screen.FromPoint(Cursor.Position);
         if (_forms.TryGetValue(screen.DeviceName, out var focused)) focused.Activate();
@@ -90,6 +92,12 @@ internal sealed class OverlayCoordinator : IDisposable
                     });
                     form.RemoveRequested += (id, desktop) => Post(source, () => { _controller.RemoveDesktop(id, desktop); UpdateContent(); });
                     form.RenameRequested += (id, desktop, name) => Post(source, () => { _controller.RenameDesktop(id, desktop, name); UpdateContent(); });
+                    form.ReorderRequested += (id, desktop, index) => Post(source, () =>
+                    {
+                        if (!_controller.ReorderDesktop(id, desktop, index)) return;
+                        UpdateContent();
+                        source.ShowStatus(UiText.Get("Reorder.Succeeded"));
+                    });
                     form.MoveToDisplayRequested += (handle, id, desktop) => Post(source, () =>
                     {
                         PreserveMovePreviews();
@@ -129,7 +137,11 @@ internal sealed class OverlayCoordinator : IDisposable
                 }
                 else form.UpdateSnapshot(screen, display, _controller.Windows, displays.Values.ToArray());
             }
-            if (_forms.Count == 0) _visible = false;
+            if (_forms.Count == 0)
+            {
+                _visible = false;
+                VisibilityChanged?.Invoke();
+            }
         }
         catch { Dismiss(false); throw; }
         finally { _updating = false; }
@@ -179,6 +191,7 @@ internal sealed class OverlayCoordinator : IDisposable
 
     public void Dismiss(bool restoreFocus = true)
     {
+        bool wasVisible = _visible;
         _visible = false;
         _generation++;
         _updating = true;
@@ -188,6 +201,7 @@ internal sealed class OverlayCoordinator : IDisposable
             _forms.Clear();
         }
         finally { _updating = false; }
+        if (wasVisible) VisibilityChanged?.Invoke();
         if (restoreFocus && _previousForeground != 0 && NativeWindows.IsVisible(_previousForeground))
             NativeWindows.Activate(_previousForeground);
     }

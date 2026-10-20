@@ -88,6 +88,14 @@ internal static class SmokeTests
             StartupSelfTests.Run(results);
             File.WriteAllText(Path.Combine(output, "test-stage.txt"), "Move preview behavior tests");
             MoveBehaviorSelfTests.Run(output, results);
+            File.WriteAllText(Path.Combine(output, "test-stage.txt"), "Desktop name display settings tests");
+            DesktopNameSelfTests.Run(output, results);
+            File.WriteAllText(Path.Combine(output, "test-stage.txt"), "Display switching mode tests");
+            DisplaySwitchingSelfTests.Run(output, results);
+            File.WriteAllText(Path.Combine(output, "test-stage.txt"), "Window move follow tests");
+            WindowMoveFollowSelfTests.Run(output, results);
+            File.WriteAllText(Path.Combine(output, "test-stage.txt"), "Desktop reorder tests");
+            DesktopReorderSelfTests.Run(output, results);
             File.WriteAllText(Path.Combine(output, "test-stage.txt"), "Taskbar activation tests");
             TaskbarActivationSelfTests.Run(output, results);
             File.WriteAllText(Path.Combine(output, "test-stage.txt"), "Shortcut preference tests");
